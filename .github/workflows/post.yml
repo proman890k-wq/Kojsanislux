@@ -2,7 +2,9 @@ name: Post to Telegram
 
 on:
   schedule:
-    - cron: '0 9 * * *'
+    - cron: '0 6 * * *'
+    - cron: '0 11 * * *'
+    - cron: '0 16 * * *'
   workflow_dispatch:
 
 permissions:
@@ -16,13 +18,14 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
 
       - name: Опубликовать следующий пост
         run: node post.js
         env:
           BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
           CHAT_ID: ${{ secrets.CHAT_ID }}
+          OWNER_ID: ${{ secrets.OWNER_ID }}
 
       - name: Сохранить обновлённую очередь
         run: |
