@@ -213,7 +213,7 @@ async def on_cleanup(app):
 
 app = web.Application(middlewares=[cors])
 app.router.add_get("/", handle_index)
-app.router.post("/webhook", handle_webhook)
+app.router.add_post("/webhook", handle_webhook) # Исправлено на add_post
 app.router.add_route("*", "/api/invoice", invoice)
 app.router.add_route("*", "/api/me", handle_me)
 app.router.add_route("*", "/api/drop", handle_drop)
