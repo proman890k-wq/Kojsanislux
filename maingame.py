@@ -1,4 +1,4 @@
-"""Улучшенный бэкенд для Нейрофермы: поддержка биржи, предметов, курса долларов и Stars.
+"""Бэкенд для Нейрофермы на Webhooks (без бесконечного polling).
 pip install aiohttp
 """
 import asyncio, os, time, random
@@ -7,8 +7,9 @@ from aiohttp import web, ClientSession
 TOKEN = "8307112310:AAFneoMo4ACr6SKTl0HNQ9hVZIW1mf-apGQ"
 WEBAPP_URL = "https://proman80k-wq.github.io/Kojsanislux/"
 API = f"https://api.telegram.org/bot{TOKEN}"
+RENDER_URL = "https://game-2gla.onrender.com"  # Твой адрес на Render без слэша на конце
 
-# Товары за Stars (включая покупку монет для биржи)
+# Товары за Stars
 ITEMS = {
     "boost2":  ("Разгон ×2 на 1 час", "Весь доход ×2", 15),
     "boost5":  ("Разгон ×5 на 1 час", "Весь доход ×5", 50),
@@ -21,7 +22,6 @@ ITEMS = {
 
 # База данных в памяти
 USERS = {}
-# Общий рынок (биржа) и банк лотов
 MARKET = {
     "lots": [
         {"id": 1, "item": "cooler", "price": 15, "mine": 0},
@@ -30,15 +30,7 @@ MARKET = {
     ],
     "id_counter": 10
 }
-DEF = {
-    "cooler": {"npc": 10},
-    "ram": {"npc": 40},
-    "gpu": {"npc": 150},
-    "core": {"npc": 500}
-}
 W8 = {"cooler": 55, "ram": 28, "gpu": 14, "core": 3}
-
-# Искусственный курс: 1 доллар = X токенов
 TOKEN_TO_USD_RATE = 1_000_000 
 
 async def call(s, method, **params):
@@ -58,10 +50,45 @@ async def cors(request, handler):
 def get_user_id(request_data):
     return str(request_data.get("user_id", "test_user"))
 
-# --- API Эндпоинты игры ---
+# --- Эндпоинты ---
 
 async def handle_index(request):
-    return web.Response(text="Bot is running!")
+    return web.Response(text="Bot Webhook Server is running!")
+
+# Прием обновлений от Telegram через Webhook
+async def handle_webhook(request):
+    try:
+        data = await request.json()
+        s = request.app["s"]
+        
+        if "pre_checkout_query" in data:
+            pcq = data["pre_checkout_query"]
+            await call(s, "answerPreCheckoutQuery", pre_checkout_query_id=pcq["id"], ok=True)
+            return web.Response(text="OK")
+            
+        m = data.get("message", {})
+        if "successful_payment" in m:
+            p = m["successful_payment"]
+            uid = str(m["from"]["id"])
+            payload = p["invoice_payload"]
+            print("PAID", uid, payload)
+            if uid not in USERS:
+                USERS[uid] = {"coins": 0, "inv": {}, "next_box": 0, "mine": [], "usd_rate": TOKEN_TO_USD_RATE}
+            
+            if payload == "coins1":
+                USERS[uid]["coins"] += 500
+            elif payload == "coins2":
+                USERS[uid]["coins"] += 3000
+                
+        elif m.get("text", "").startswith("/start"):
+            chat_id = m["chat"]["id"]
+            await call(s, "sendMessage", chat_id=chat_id, text="Запускай нейроферму 👇",
+                       reply_markup={"inline_keyboard": [[{"text": "Играть", "web_app": {"url": WEBAPP_URL}}]]})
+                       
+    except Exception as e:
+        print("Webhook error:", e)
+        
+    return web.Response(text="OK")
 
 async def handle_me(request):
     data = await request.json() if request.can_read_body else {}
@@ -74,11 +101,8 @@ async def handle_me(request):
     u = USERS[uid]
     return web.json_response({
         "state": {
-            "coins": u["coins"],
-            "inv": u["inv"],
-            "next": u["next_box"],
-            "mine": u["mine"],
-            "rate": u["usd_rate"]
+            "coins": u["coins"], "inv": u["inv"], "next": u["next_box"],
+            "mine": u["mine"], "rate": u["usd_rate"]
         }
     })
 
@@ -90,7 +114,6 @@ async def handle_drop(request):
     if not u or now < u["next_box"]:
         return web.json_response({"error": "Ящик ещё не готов"}, status=400)
     
-    # Розыгрыш предмета
     r_val = random.uniform(0, 100)
     chosen = "cooler"
     for k, w in W8.items():
@@ -100,7 +123,7 @@ async def handle_drop(request):
             break
     
     u["inv"][chosen] = u["inv"].get(chosen, 0) + 1
-    u["next_box"] = now + 60000 # 1 минута
+    u["next_box"] = now + 60000
     
     return web.json_response({
         "item": chosen,
@@ -135,7 +158,7 @@ async def handle_buy_lot(request):
     if lot.get("mine") and str(lot.get("owner")) != uid:
         owner = USERS.get(str(lot.get("owner")))
         if owner:
-            owner["coins"] += int(lot["price"] * 0.95) # комиссия 5%
+            owner["coins"] += int(lot["price"] * 0.95)
 
     return web.json_response({
         "state": {"coins": u["coins"], "inv": u["inv"], "next": u["next_box"], "mine": u["mine"]},
@@ -177,50 +200,20 @@ async def invoice(request):
                    currency="XTR", prices=[{"label": item[0], "amount": item[2]}])
     return web.json_response({"link": r["result"]})
 
-async def poll(app):
-    s = app["s"]
-    offset = 0
-    while True:
-        try:
-            async with s.post(f"{API}/getUpdates", json={"offset": offset, "timeout": 20, "allowed_updates": ["message", "pre_checkout_query"]}) as resp:
-                if resp.status == 200:
-                    r = await resp.json()
-                    for u in r.get("result", []):
-                        offset = u["update_id"] + 1
-                        if "pre_checkout_query" in u:
-                            await call(s, "answerPreCheckoutQuery",
-                                       pre_checkout_query_id=u["pre_checkout_query"]["id"], ok=True)
-                        m = u.get("message", {})
-                        if "successful_payment" in m:
-                            p = m["successful_payment"]
-                            uid = str(m["from"]["id"])
-                            payload = p["invoice_payload"]
-                            print("PAID", uid, payload)
-                            if uid not in USERS:
-                                USERS[uid] = {"coins": 0, "inv": {}, "next_box": 0, "mine": [], "usd_rate": TOKEN_TO_USD_RATE}
-                            
-                            if payload == "coins1":
-                                USERS[uid]["coins"] += 500
-                            elif payload == "coins2":
-                                USERS[uid]["coins"] += 3000
-                        elif m.get("text", "").startswith("/start"):
-                            await call(s, "sendMessage", chat_id=m["chat"]["id"], text="Запускай нейроферму 👇",
-                                       reply_markup={"inline_keyboard": [[{"text": "Играть",
-                                                                          "web_app": {"url": WEBAPP_URL}}]]})
-        except Exception as e:
-            print("Poll reconnecting due to:", e)
-            await asyncio.sleep(3)
-        await asyncio.sleep(0.5)
-
 async def on_start(app):
     app["s"] = ClientSession()
-    app["task"] = asyncio.create_task(poll(app))
+    # Автоматически регистрируем вебхук в Telegram при запуске сервера
+    webhook_url = f"{RENDER_URL}/webhook"
+    async with app["s"].post(f"{API}/setWebhook", json={"url": webhook_url, "allowed_updates": ["message", "pre_checkout_query"]}) as resp:
+        res_json = await resp.json()
+        print("Set Webhook Response:", res_json)
 
 async def on_cleanup(app):
     await app["s"].close()
 
 app = web.Application(middlewares=[cors])
 app.router.add_get("/", handle_index)
+app.router.post("/webhook", handle_webhook)
 app.router.add_route("*", "/api/invoice", invoice)
 app.router.add_route("*", "/api/me", handle_me)
 app.router.add_route("*", "/api/drop", handle_drop)
