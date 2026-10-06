@@ -1,4 +1,4 @@
-"""Бэкенд для Нейрофермы на Webhooks (без бесконечного polling).
+"""Финальный бэкенд для Нейрофермы на Webhooks (без ошибок и опросов).
 pip install aiohttp
 """
 import asyncio, os, time, random
@@ -7,9 +7,8 @@ from aiohttp import web, ClientSession
 TOKEN = "8307112310:AAFneoMo4ACr6SKTl0HNQ9hVZIW1mf-apGQ"
 WEBAPP_URL = "https://proman80k-wq.github.io/Kojsanislux/"
 API = f"https://api.telegram.org/bot{TOKEN}"
-RENDER_URL = "https://game-2gla.onrender.com"  # Твой адрес на Render без слэша на конце
+RENDER_URL = "https://game-2gla.onrender.com"
 
-# Товары за Stars
 ITEMS = {
     "boost2":  ("Разгон ×2 на 1 час", "Весь доход ×2", 15),
     "boost5":  ("Разгон ×5 на 1 час", "Весь доход ×5", 50),
@@ -20,7 +19,6 @@ ITEMS = {
     "coins2":  ("3000 монет биржи 🪙", "Выгоднее на 20%", 250),
 }
 
-# База данных в памяти
 USERS = {}
 MARKET = {
     "lots": [
@@ -50,12 +48,9 @@ async def cors(request, handler):
 def get_user_id(request_data):
     return str(request_data.get("user_id", "test_user"))
 
-# --- Эндпоинты ---
-
 async def handle_index(request):
     return web.Response(text="Bot Webhook Server is running!")
 
-# Прием обновлений от Telegram через Webhook
 async def handle_webhook(request):
     try:
         data = await request.json()
@@ -202,7 +197,6 @@ async def invoice(request):
 
 async def on_start(app):
     app["s"] = ClientSession()
-    # Автоматически регистрируем вебхук в Telegram при запуске сервера
     webhook_url = f"{RENDER_URL}/webhook"
     async with app["s"].post(f"{API}/setWebhook", json={"url": webhook_url, "allowed_updates": ["message", "pre_checkout_query"]}) as resp:
         res_json = await resp.json()
@@ -213,7 +207,7 @@ async def on_cleanup(app):
 
 app = web.Application(middlewares=[cors])
 app.router.add_get("/", handle_index)
-app.router.add_post("/webhook", handle_webhook) # Исправлено на add_post
+app.router.add_post("/webhook", handle_webhook)
 app.router.add_route("*", "/api/invoice", invoice)
 app.router.add_route("*", "/api/me", handle_me)
 app.router.add_route("*", "/api/drop", handle_drop)
