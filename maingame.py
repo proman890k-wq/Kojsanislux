@@ -1,12 +1,11 @@
 """Улучшенный бэкенд для Нейрофермы: поддержка биржи, предметов, курса долларов и Stars.
 pip install aiohttp
-BOT_TOKEN=... WEBAPP_URL=https://твой-домен/index.html python bot.py
 """
 import asyncio, os, time, random
 from aiohttp import web, ClientSession
 
-TOKEN = os.environ["BOT_TOKEN"]
-WEBAPP_URL = os.environ["WEBAPP_URL"]
+TOKEN = "8307112310:AAFneoMo4ACr6SKTl0HNQ9hVZIW1mf-apGQ"
+WEBAPP_URL = "https://proman80k-wq.github.io/Kojsanislux/"
 API = f"https://api.telegram.org/bot{TOKEN}"
 
 # Товары за Stars (включая покупку монет для биржи)
@@ -21,7 +20,6 @@ ITEMS = {
 }
 
 # База данных в памяти (для продакшна лучше заменить на SQLite / PostgreSQL)
-# Структура пользователей: user_id -> {t, run, tot, g, tap, cr, oh, ev, w, bu, bm, fr, im, iu, auto, off, perm, ach, last, coins, inv}
 USERS = {}
 # Общий рынок (биржа) и банк лотов
 MARKET = {
@@ -58,8 +56,6 @@ async def cors(request, handler):
     return resp
 
 def get_user_id(request_data):
-    # В реальном мини-приложении user_id лучше доставать из initData, 
-    # для простоты принимаем из JSON или ставим дефолтного тестового юзера
     return str(request_data.get("user_id", "test_user"))
 
 # --- API Эндпоинты игры ---
@@ -91,16 +87,17 @@ async def handle_drop(request):
     if not u or now < u["next_box"]:
         return web.json_response({"error": "Ящик ещё не готов"}, status=400)
     
--    # Розыгрыш предмета
+    # Розыгрыш предмета
     r_val = random.uniform(0, 100)
     chosen = "cooler"
     for k, w in W8.items():
-        if (r_val -= w) < 0:
+        r_val -= w
+        if r_val < 0:
             chosen = k
             break
     
     u["inv"][chosen] = u["inv"].get(chosen, 0) + 1
-    u["next_box"] = now + 60000 # 1 минута (можно поставить 20 минут: 1200000)
+    u["next_box"] = now + 60000 # 1 минута
     
     return web.json_response({
         "item": chosen,
@@ -133,7 +130,6 @@ async def handle_buy_lot(request):
     MARKET["lots"].remove(lot)
     
     if lot.get("mine") and str(lot.get("owner")) != uid:
-        # Начислить продавцу (если это реальный игрок)
         owner = USERS.get(str(lot.get("owner")))
         if owner:
             owner["coins"] += int(lot["price"] * 0.95) # комиссия 5%
@@ -198,7 +194,6 @@ async def poll(app):
                     if uid not in USERS:
                         USERS[uid] = {"coins": 0, "inv": {}, "next_box": 0, "mine": [], "usd_rate": TOKEN_TO_USD_RATE}
                     
-                    # Если купили монеты через донат
                     if payload == "coins1":
                         USERS[uid]["coins"] += 500
                     elif payload == "coins2":
