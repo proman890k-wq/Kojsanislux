@@ -1,4 +1,5 @@
 import os
+import json
 import time
 import random
 from aiohttp import web, ClientSession
@@ -12,8 +13,26 @@ WEBAPP_URL = "https://proman890k-wq.github.io/Kojsanislux/"
 RENDER_URL = "https://game-2gla.onrender.com"
 API = f"https://api.telegram.org/bot{TOKEN}"
 TOKEN_TO_USD_RATE = 1_000_000
+DB_FILE = "database.json"
 
-USERS = {}
+# =========================
+# РАБОТА С БАЗОЙ ДАННЫХ (JSON)
+# =========================
+
+def load_db():
+    if os.path.exists(DB_FILE):
+        try:
+            with open(DB_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except:
+            pass
+    return {}
+
+def save_db(data):
+    with open(DB_FILE, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=4)
+
+USERS = load_db()
 
 # =========================
 # БАЗА ПРЕДМЕТОВ И УЛУЧШЕНИЙ
@@ -97,16 +116,68 @@ async def cors(request, handler):
     response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
     return response
 
-def get_user_id(data):
-    return str(data.get("user_id", "test_user"))
+def get_user_login(data):
+    return str(data.get("login", "")).strip()
 
 
 # =========================
-# РОУТЫ
+# РОУТЫ АВТОРИЗАЦИИ И ИГРЫ
 # =========================
 
 async def handle_index(request):
     return web.Response(text="Bot Webhook Server is running!")
+
+async def handle_register(request):
+    try:
+        data = await request.json()
+        login = data.get("login", "").strip()
+        password = data.get("password", "").strip()
+
+        if not login or not password:
+            return web.json_response({"error": "Заполните логин и пароль"}, status=400)
+
+        if login in USERS:
+            return web.json_response({"error": "Логин уже занят"}, status=400)
+
+        USERS[login] = {
+            "password": password,
+            "coins": 100,
+            "tokens": 5,
+            "inv": {"cooler": 1},
+            "next_box": 0,
+            "mine": [],
+            "game_state": {}
+        }
+        save_db(USERS)
+        return web.json_response({"status": "ok", "login": login})
+    except Exception as e:
+        return web.json_response({"error": str(e)}, status=500)
+
+
+async def handle_login(request):
+    try:
+        data = await request.json()
+        login = data.get("login", "").strip()
+        password = data.get("password", "").strip()
+
+        if login not in USERS or USERS[login].get("password") != password:
+            return web.json_response({"error": "Неверный логин или пароль"}, status=400)
+
+        user = USERS[login]
+        response_state = user.get("game_state", {})
+        if not response_state:
+            response_state = {
+                "coins": user.get("coins", 100),
+                "tokens": user.get("tokens", 5),
+                "inv": user.get("inv", {}),
+                "next": user.get("next_box", 0),
+                "mine": user.get("mine", [])
+            }
+
+        return web.json_response({"status": "ok", "login": login, "state": response_state})
+    except Exception as e:
+        return web.json_response({"error": str(e)}, status=500)
+
 
 async def handle_webhook(request):
     try:
@@ -121,18 +192,6 @@ async def handle_webhook(request):
         message = data.get("message", {})
         if message.get("text", "").startswith("/start"):
             chat_id = message["chat"]["id"]
-            uid = str(message.get("from", {}).get("id", chat_id))
-
-            if uid not in USERS:
-                USERS[uid] = {
-                    "coins": 100,
-                    "tokens": 5,
-                    "inv": {"cooler": 1},
-                    "next_box": 0,
-                    "mine": [],
-                    "game_state": {}
-                }
-
             await call(
                 session, "sendMessage",
                 chat_id=chat_id,
@@ -151,26 +210,19 @@ async def handle_me(request):
     except:
         data = {}
 
-    uid = get_user_id(data)
-    if uid not in USERS:
-        USERS[uid] = {
-            "coins": 100,
-            "tokens": 5,
-            "inv": {"cooler": 1},
-            "next_box": 0,
-            "mine": [],
-            "game_state": {}
-        }
+    login = get_user_login(data)
+    if not login or login not in USERS:
+        return web.json_response({"error": "Unauthorized"}, status=401)
 
-    user = USERS[uid]
+    user = USERS[login]
     response_state = user.get("game_state", {})
     if not response_state:
         response_state = {
-            "coins": user["coins"],
+            "coins": user.get("coins", 100),
             "tokens": user.get("tokens", 5),
-            "inv": user["inv"],
-            "next": user["next_box"],
-            "mine": user["mine"]
+            "inv": user.get("inv", {}),
+            "next": user.get("next_box", 0),
+            "mine": user.get("mine", [])
         }
 
     return web.json_response({"state": response_state})
@@ -182,27 +234,30 @@ async def handle_save(request):
     except:
         data = {}
 
-    uid = get_user_id(data)
+    login = get_user_login(data)
     user_state = data.get("state")
 
-    if uid not in USERS:
-        USERS[uid] = {"coins": 100, "tokens": 5, "inv": {}, "next_box": 0, "mine": [], "game_state": {}}
+    if not login or login not in USERS:
+        return web.json_response({"error": "Unauthorized"}, status=401)
 
     if user_state and isinstance(user_state, dict):
-        USERS[uid]["game_state"] = user_state
-        if "coins" in user_state: USERS[uid]["coins"] = user_state["coins"]
-        if "tokens" in user_state: USERS[uid]["tokens"] = user_state["tokens"]
-        if "inv" in user_state: USERS[uid]["inv"] = user_state["inv"]
-        if "next" in user_state: USERS[uid]["next_box"] = user_state["next"]
-        if "mine" in user_state: USERS[uid]["mine"] = user_state["mine"]
+        pwd = USERS[login].get("password")
+        USERS[login]["game_state"] = user_state
+        if "coins" in user_state: USERS[login]["coins"] = user_state["coins"]
+        if "tokens" in user_state: USERS[login]["tokens"] = user_state["tokens"]
+        if "inv" in user_state: USERS[login]["inv"] = user_state["inv"]
+        if "next" in user_state: USERS[login]["next_box"] = user_state["next"]
+        if "mine" in user_state: USERS[login]["mine"] = user_state["mine"]
+        USERS[login]["password"] = pwd
+        save_db(USERS)
 
     return web.json_response({"status": "ok"})
 
 
 async def handle_drop(request):
     data = await request.json()
-    uid = get_user_id(data)
-    user = USERS.get(uid)
+    login = get_user_login(data)
+    user = USERS.get(login)
     now = time.time() * 1000
 
     if not user:
@@ -226,6 +281,8 @@ async def handle_drop(request):
     if user.get("game_state"):
         user["game_state"]["inv"] = user["inv"]
         user["game_state"]["next"] = user["next_box"]
+    
+    save_db(USERS)
 
     return web.json_response({
         "item": chosen_item,
@@ -240,15 +297,15 @@ async def handle_market(request):
     except:
         data = {}
 
-    uid = get_user_id(data)
-    user = USERS.get(uid, {"coins": 100, "tokens": 5, "inv": {}, "next_box": 0, "mine": []})
+    login = get_user_login(data)
+    user = USERS.get(login, {"coins": 100, "tokens": 5, "inv": {}, "next_box": 0, "mine": []})
 
     state_data = user.get("game_state", {
-        "coins": user["coins"],
-        "tokens": user["tokens"],
-        "inv": user["inv"],
-        "next": user["next_box"],
-        "mine": user["mine"]
+        "coins": user.get("coins", 100),
+        "tokens": user.get("tokens", 5),
+        "inv": user.get("inv", {}),
+        "next": user.get("next_box", 0),
+        "mine": user.get("mine", [])
     })
 
     time_left = max(0, 300 - int(time.time() - MARKET["last_update"]))
@@ -262,8 +319,8 @@ async def handle_market(request):
 
 async def handle_buy_lot(request):
     data = await request.json()
-    uid = get_user_id(data)
-    user = USERS.get(uid)
+    login = get_user_login(data)
+    user = USERS.get(login)
     lot_id = data.get("id")
 
     if not user:
@@ -285,6 +342,8 @@ async def handle_buy_lot(request):
         user["game_state"]["coins"] = user["coins"]
         user["game_state"]["inv"] = user["inv"]
 
+    save_db(USERS)
+
     return web.json_response({
         "state": user.get("game_state"),
         "lots": MARKET["lots"]
@@ -293,8 +352,8 @@ async def handle_buy_lot(request):
 
 async def handle_list_lot(request):
     data = await request.json()
-    uid = get_user_id(data)
-    user = USERS.get(uid)
+    login = get_user_login(data)
+    user = USERS.get(login)
     item = data.get("item")
     price = int(data.get("price", 0))
 
@@ -315,12 +374,14 @@ async def handle_list_lot(request):
         "rarity": item_info["rarity"],
         "price": price,
         "mine": 1,
-        "owner": uid
+        "owner": login
     }
     MARKET["lots"].append(new_lot)
 
     if user.get("game_state"):
         user["game_state"]["inv"] = user["inv"]
+
+    save_db(USERS)
 
     return web.json_response({
         "state": user.get("game_state"),
@@ -342,6 +403,8 @@ async def on_cleanup(app):
 app = web.Application(middlewares=[cors])
 app.router.add_get("/", handle_index)
 app.router.add_post("/webhook", handle_webhook)
+app.router.add_post("/api/register", handle_register)
+app.router.add_post("/api/login", handle_login)
 app.router.add_route("*", "/api/me", handle_me)
 app.router.add_route("*", "/api/save", handle_save)
 app.router.add_route("*", "/api/drop", handle_drop)
