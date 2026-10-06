@@ -1,4 +1,3 @@
-
 import os
 import time
 import random
@@ -115,37 +114,27 @@ W8 = {
 # =========================
 
 async def call(session, method, **params):
-
     try:
-
         async with session.post(
             f"{API}/{method}",
             json=params
         ) as response:
-
             result = await response.json()
-
             print(
                 f"Telegram API: {method} -> "
                 f"{result.get('ok')}"
             )
-
             if not result.get("ok"):
-
                 print(
                     "Telegram API error:",
                     result
                 )
-
             return result
-
     except Exception as e:
-
         print(
             f"Telegram API exception ({method}):",
             repr(e)
         )
-
         return {
             "ok": False,
             "error": str(e)
@@ -158,24 +147,16 @@ async def call(session, method, **params):
 
 @web.middleware
 async def cors(request, handler):
-
     if request.method == "OPTIONS":
-
         response = web.Response()
-
     else:
-
         try:
-
             response = await handler(request)
-
         except Exception as e:
-
             print(
                 "Request error:",
                 repr(e)
             )
-
             response = web.json_response(
                 {
                     "error":
@@ -184,15 +165,12 @@ async def cors(request, handler):
                 status=500
             )
 
-
     response.headers[
         "Access-Control-Allow-Origin"
     ] = "*"
-
     response.headers[
         "Access-Control-Allow-Headers"
     ] = "Content-Type"
-
     response.headers[
         "Access-Control-Allow-Methods"
     ] = "GET, POST, OPTIONS"
@@ -205,7 +183,6 @@ async def cors(request, handler):
 # =========================
 
 def get_user_id(data):
-
     return str(
         data.get(
             "user_id",
@@ -219,7 +196,6 @@ def get_user_id(data):
 # =========================
 
 async def handle_index(request):
-
     return web.Response(
         text="Bot Webhook Server is running!"
     )
@@ -230,9 +206,7 @@ async def handle_index(request):
 # =========================
 
 async def handle_webhook(request):
-
     try:
-
         data = await request.json()
 
         print("")
@@ -244,13 +218,11 @@ async def handle_webhook(request):
 
         session = request.app["s"]
 
-
         # =========================
         # PRE CHECKOUT
         # =========================
 
         if "pre_checkout_query" in data:
-
             pcq = data[
                 "pre_checkout_query"
             ]
@@ -263,17 +235,14 @@ async def handle_webhook(request):
             await call(
                 session,
                 "answerPreCheckoutQuery",
-
                 pre_checkout_query_id=
                     pcq["id"],
-
                 ok=True
             )
 
             return web.Response(
                 text="OK"
             )
-
 
         # =========================
         # MESSAGE
@@ -284,13 +253,11 @@ async def handle_webhook(request):
             {}
         )
 
-
         # =========================
         # ОПЛАТА
         # =========================
 
         if "successful_payment" in message:
-
             payment = message[
                 "successful_payment"
             ]
@@ -309,34 +276,31 @@ async def handle_webhook(request):
                 payload
             )
 
-
             if uid not in USERS:
-
                 USERS[uid] = {
                     "coins": 0,
                     "inv": {},
                     "next_box": 0,
                     "mine": [],
                     "usd_rate":
-                        TOKEN_TO_USD_RATE
+                        TOKEN_TO_USD_RATE,
+                    "game_state": {}
                 }
 
-
             if payload == "coins1":
-
                 USERS[uid]["coins"] += 500
-
+                if "game_state" in USERS[uid] and USERS[uid]["game_state"]:
+                    USERS[uid]["game_state"]["coins"] = USERS[uid]["coins"]
 
             elif payload == "coins2":
-
                 USERS[uid]["coins"] += 3000
-
+                if "game_state" in USERS[uid] and USERS[uid]["game_state"]:
+                    USERS[uid]["game_state"]["coins"] = USERS[uid]["coins"]
 
             print(
                 "USER AFTER PAYMENT:",
                 USERS[uid]
             )
-
 
         # =========================
         # /START
@@ -346,7 +310,6 @@ async def handle_webhook(request):
             "text",
             ""
         ).startswith("/start"):
-
             chat_id = message[
                 "chat"
             ]["id"]
@@ -356,7 +319,6 @@ async def handle_webhook(request):
                 {}
             )
 
-
             print("")
             print("==============================")
             print("START COMMAND")
@@ -365,7 +327,6 @@ async def handle_webhook(request):
             print("==============================")
             print("")
 
-
             uid = str(
                 user.get(
                     "id",
@@ -373,24 +334,18 @@ async def handle_webhook(request):
                 )
             )
 
-
             # Создаём пользователя
-
             if uid not in USERS:
-
                 USERS[uid] = {
                     "coins": 100,
-
                     "inv": {
                         "cooler": 1
                     },
-
                     "next_box": 0,
-
                     "mine": [],
-
                     "usd_rate":
-                        TOKEN_TO_USD_RATE
+                        TOKEN_TO_USD_RATE,
+                    "game_state": {}
                 }
 
                 print(
@@ -398,36 +353,23 @@ async def handle_webhook(request):
                     uid
                 )
 
-
             # Отправляем сообщение
-
             result = await call(
-
                 session,
-
                 "sendMessage",
-
                 chat_id=chat_id,
-
                 text=(
                     "🌱 Добро пожаловать "
                     "в Нейроферму!\n\n"
                     "Запускай игру 👇"
                 ),
-
                 reply_markup={
-
                     "inline_keyboard": [
-
                         [
-
                             {
-
                                 "text":
                                     "🎮 Играть",
-
                                 "web_app": {
-
                                     "url":
                                         WEBAPP_URL
                                 }
@@ -437,20 +379,16 @@ async def handle_webhook(request):
                 }
             )
 
-
             print(
                 "START RESPONSE:",
                 result
             )
 
-
     except Exception as e:
-
         print(
             "WEBHOOK ERROR:",
             repr(e)
         )
-
 
     return web.Response(
         text="OK"
@@ -458,70 +396,85 @@ async def handle_webhook(request):
 
 
 # =========================
-# /API/ME
+# /API/ME (Загрузка прогресса)
 # =========================
 
 async def handle_me(request):
-
     try:
-
         data = await request.json()
-
     except:
-
         data = {}
 
-
-    uid = get_user_id(
-        data
-    )
-
+    uid = get_user_id(data)
 
     if uid not in USERS:
-
         USERS[uid] = {
-
-            "coins":
-                100,
-
+            "coins": 100,
             "inv": {
                 "cooler": 1
             },
-
-            "next_box":
-                0,
-
-            "mine":
-                [],
-
+            "next_box": 0,
+            "mine": [],
             "usd_rate":
-                TOKEN_TO_USD_RATE
+                TOKEN_TO_USD_RATE,
+            "game_state": {}
         }
-
 
     user = USERS[uid]
 
+    # Возвращаем полноценный игровой стейт, если он сохранен, иначе собираем из полей
+    response_state = user.get("game_state", {})
+    if not response_state:
+        response_state = {
+            "coins": user["coins"],
+            "inv": user["inv"],
+            "next": user["next_box"],
+            "mine": user["mine"],
+            "rate": user["usd_rate"]
+        }
 
     return web.json_response({
-
-        "state": {
-
-            "coins":
-                user["coins"],
-
-            "inv":
-                user["inv"],
-
-            "next":
-                user["next_box"],
-
-            "mine":
-                user["mine"],
-
-            "rate":
-                user["usd_rate"]
-        }
+        "state": response_state
     })
+
+
+# =========================
+# /API/SAVE (Сохранение прогресса)
+# =========================
+
+async def handle_save(request):
+    try:
+        data = await request.json()
+    except:
+        data = {}
+
+    uid = get_user_id(data)
+    user_state = data.get("state")
+
+    if uid not in USERS:
+        USERS[uid] = {
+            "coins": 100,
+            "inv": {"cooler": 1},
+            "next_box": 0,
+            "mine": [],
+            "usd_rate": TOKEN_TO_USD_RATE,
+            "game_state": {}
+        }
+
+    if user_state and isinstance(user_state, dict):
+        USERS[uid]["game_state"] = user_state
+        
+        # Синхронизируем базовые поля для совместимости с другими эндпоинтами
+        if "coins" in user_state:
+            USERS[uid]["coins"] = user_state["coins"]
+        if "inv" in user_state:
+            USERS[uid]["inv"] = user_state["inv"]
+        if "next" in user_state:
+            USERS[uid]["next_box"] = user_state["next"]
+        if "mine" in user_state:
+            USERS[uid]["mine"] = user_state["mine"]
+
+    return web.json_response({"status": "ok"})
 
 
 # =========================
@@ -529,65 +482,45 @@ async def handle_me(request):
 # =========================
 
 async def handle_drop(request):
-
     data = await request.json()
-
     uid = get_user_id(
         data
     )
-
     user = USERS.get(
         uid
     )
-
     now = time.time() * 1000
 
-
     if not user:
-
         return web.json_response(
-
             {
                 "error":
                     "Пользователь не найден"
             },
-
             status=400
         )
 
-
     if now < user["next_box"]:
-
         return web.json_response(
-
             {
                 "error":
                     "Ящик ещё не готов"
             },
-
             status=400
         )
-
 
     value = random.uniform(
         0,
         100
     )
 
-
     chosen = "cooler"
 
-
     for item, weight in W8.items():
-
         value -= weight
-
         if value < 0:
-
             chosen = item
-
             break
-
 
     user["inv"][chosen] = (
         user["inv"].get(
@@ -596,28 +529,25 @@ async def handle_drop(request):
         ) + 1
     )
 
-
     user["next_box"] = (
         now + 60000
     )
 
+    # Синхронизируем с game_state, если он есть у юзера
+    if user.get("game_state"):
+        user["game_state"]["inv"] = user["inv"]
+        user["game_state"]["next"] = user["next_box"]
 
     return web.json_response({
-
         "item":
             chosen,
-
-        "state": {
-
+        "state": user.get("game_state") if user.get("game_state") else {
             "coins":
                 user["coins"],
-
             "inv":
                 user["inv"],
-
             "next":
                 user["next_box"],
-
             "mine":
                 user["mine"]
         }
@@ -629,25 +559,17 @@ async def handle_drop(request):
 # =========================
 
 async def handle_market(request):
-
     try:
-
         data = await request.json()
-
     except:
-
         data = {}
-
 
     uid = get_user_id(
         data
     )
 
-
     user = USERS.get(
-
         uid,
-
         {
             "coins": 0,
             "inv": {},
@@ -656,24 +578,19 @@ async def handle_market(request):
         }
     )
 
+    state_data = user.get("game_state") if user.get("game_state") else {
+        "coins":
+            user["coins"],
+        "inv":
+            user["inv"],
+        "next":
+            user["next_box"],
+        "mine":
+            user["mine"]
+    }
 
     return web.json_response({
-
-        "state": {
-
-            "coins":
-                user["coins"],
-
-            "inv":
-                user["inv"],
-
-            "next":
-                user["next_box"],
-
-            "mine":
-                user["mine"]
-        },
-
+        "state": state_data,
         "lots":
             MARKET["lots"]
     })
@@ -684,91 +601,65 @@ async def handle_market(request):
 # =========================
 
 async def handle_buy_lot(request):
-
     data = await request.json()
-
     uid = get_user_id(
         data
     )
-
     user = USERS.get(
         uid
     )
-
     lot_id = data.get(
         "id"
     )
 
-
     if not user:
-
         return web.json_response(
-
             {
                 "error":
                     "Пользователь не найден"
             },
-
             status=400
         )
 
-
     lot = next(
-
         (
             lot
-
             for lot in MARKET["lots"]
-
             if lot["id"] == lot_id
         ),
-
         None
     )
 
-
     if not lot:
-
         return web.json_response(
-
             {
                 "error":
                     "Лот уже продан"
             },
-
             status=400
         )
 
-
     if user["coins"] < lot["price"]:
-
         return web.json_response(
-
             {
                 "error":
                     "Не хватает монет"
             },
-
             status=400
         )
 
-
     user["coins"] -= lot["price"]
 
-
     user["inv"][lot["item"]] = (
-
         user["inv"].get(
             lot["item"],
             0
         ) + 1
     )
 
-
     MARKET["lots"].remove(
         lot
     )
-
 
     if (
         lot.get("mine")
@@ -777,7 +668,6 @@ async def handle_buy_lot(request):
             lot.get("owner")
         ) != uid
     ):
-
         owner = USERS.get(
             str(
                 lot.get(
@@ -786,31 +676,30 @@ async def handle_buy_lot(request):
             )
         )
 
-
         if owner:
-
             owner["coins"] += int(
                 lot["price"] * 0.95
             )
+            if owner.get("game_state"):
+                owner["game_state"]["coins"] = owner["coins"]
 
+    if user.get("game_state"):
+        user["game_state"]["coins"] = user["coins"]
+        user["game_state"]["inv"] = user["inv"]
+
+    state_data = user.get("game_state") if user.get("game_state") else {
+        "coins":
+            user["coins"],
+        "inv":
+            user["inv"],
+        "next":
+            user["next_box"],
+        "mine":
+            user["mine"]
+    }
 
     return web.json_response({
-
-        "state": {
-
-            "coins":
-                user["coins"],
-
-            "inv":
-                user["inv"],
-
-            "next":
-                user["next_box"],
-
-            "mine":
-                user["mine"]
-        },
-
+        "state": state_data,
         "lots":
             MARKET["lots"]
     })
@@ -821,21 +710,16 @@ async def handle_buy_lot(request):
 # =========================
 
 async def handle_list_lot(request):
-
     data = await request.json()
-
     uid = get_user_id(
         data
     )
-
     user = USERS.get(
         uid
     )
-
     item = data.get(
         "item"
     )
-
     price = int(
         data.get(
             "price",
@@ -843,19 +727,14 @@ async def handle_list_lot(request):
         )
     )
 
-
     if not user:
-
         return web.json_response(
-
             {
                 "error":
                     "Пользователь не найден"
             },
-
             status=400
         )
-
 
     if (
         price <= 0
@@ -865,76 +744,60 @@ async def handle_list_lot(request):
             0
         ) > 0
     ):
-
         return web.json_response(
-
             {
                 "error":
                     "Неверные данные "
                     "или нет предмета"
             },
-
             status=400
         )
 
-
     user["inv"][item] -= 1
 
-
     if user["inv"][item] <= 0:
-
         del user["inv"][item]
-
 
     MARKET["id_counter"] += 1
 
-
     new_lot = {
-
         "id":
             MARKET["id_counter"],
-
         "item":
             item,
-
         "price":
             price,
-
         "mine":
             1,
-
         "owner":
             uid
     }
-
 
     MARKET["lots"].append(
         new_lot
     )
 
-
     user["mine"].append(
         new_lot
     )
 
+    if user.get("game_state"):
+        user["game_state"]["inv"] = user["inv"]
+        user["game_state"]["mine"] = user["mine"]
+
+    state_data = user.get("game_state") if user.get("game_state") else {
+        "coins":
+            user["coins"],
+        "inv":
+            user["inv"],
+        "next":
+            user["next_box"],
+        "mine":
+            user["mine"]
+    }
 
     return web.json_response({
-
-        "state": {
-
-            "coins":
-                user["coins"],
-
-            "inv":
-                user["inv"],
-
-            "next":
-                user["next_box"],
-
-            "mine":
-                user["mine"]
-        },
-
+        "state": state_data,
         "lots":
             MARKET["lots"]
     })
@@ -945,63 +808,43 @@ async def handle_list_lot(request):
 # =========================
 
 async def invoice(request):
-
     data = await request.json()
-
     item_key = data.get(
         "item"
     )
-
 
     item = ITEMS.get(
         item_key
     )
 
-
     if not item:
-
         return web.json_response(
-
             {
                 "error":
                     "bad item"
             },
-
             status=400
         )
 
-
     result = await call(
-
         request.app["s"],
-
         "createInvoiceLink",
-
         title=item[0],
-
         description=item[1],
-
         payload=item_key,
-
         currency="XTR",
-
         prices=[
-
             {
                 "label":
                     item[0],
-
                 "amount":
                     item[2]
             }
         ]
     )
 
-
     if not result.get("ok"):
-
         return web.json_response(
-
             {
                 "error":
                     result.get(
@@ -1009,13 +852,10 @@ async def invoice(request):
                         "Telegram error"
                     )
             },
-
             status=500
         )
 
-
     return web.json_response({
-
         "link":
             result["result"]
     })
@@ -1026,96 +866,64 @@ async def invoice(request):
 # =========================
 
 async def on_start(app):
-
     print("")
     print("==============================")
     print("STARTING BOT SERVER")
     print("==============================")
     print("")
 
-
     if not TOKEN:
-
         print(
             "ERROR: TOKEN пустой!"
         )
-
         return
 
-
     app["s"] = ClientSession()
-
-
-    # Проверяем бота
 
     bot_info = await call(
         app["s"],
         "getMe"
     )
 
-
     print(
         "BOT INFO:",
         bot_info
     )
 
-
     if not bot_info.get("ok"):
-
         print(
             "ОШИБКА ТОКЕНА!"
         )
-
         return
-
-
-    # =========================
-    # WEBHOOK
-    # =========================
 
     webhook_url = (
         f"{RENDER_URL}/webhook"
     )
-
 
     print(
         "Устанавливаю webhook:",
         webhook_url
     )
 
-
     webhook_result = await call(
-
         app["s"],
-
         "setWebhook",
-
         url=webhook_url,
-
         allowed_updates=[
-
             "message",
-
             "pre_checkout_query"
         ]
     )
-
 
     print(
         "SET WEBHOOK:",
         webhook_result
     )
 
-
-    # Проверяем webhook
-
     webhook_info = await call(
-
         app["s"],
-
         "getWebhookInfo"
     )
-
 
     print(
         "WEBHOOK INFO:",
@@ -1128,9 +936,7 @@ async def on_start(app):
 # =========================
 
 async def on_cleanup(app):
-
     if "s" in app:
-
         await app["s"].close()
 
 
@@ -1139,12 +945,10 @@ async def on_cleanup(app):
 # =========================
 
 app = web.Application(
-
     middlewares=[
         cors
     ]
 )
-
 
 app.router.add_get(
     "/",
@@ -1166,6 +970,12 @@ app.router.add_route(
     "*",
     "/api/me",
     handle_me
+)
+
+app.router.add_route(
+    "*",
+    "/api/save",
+    handle_save
 )
 
 app.router.add_route(
@@ -1192,7 +1002,6 @@ app.router.add_route(
     handle_list_lot
 )
 
-
 app.on_startup.append(
     on_start
 )
@@ -1207,7 +1016,6 @@ app.on_cleanup.append(
 # =========================
 
 if __name__ == "__main__":
-
     port = int(
         os.environ.get(
             "PORT",
@@ -1215,17 +1023,12 @@ if __name__ == "__main__":
         )
     )
 
-
     print(
         f"SERVER PORT: {port}"
     )
 
-
     web.run_app(
-
         app,
-
         host="0.0.0.0",
-
         port=port
     )
