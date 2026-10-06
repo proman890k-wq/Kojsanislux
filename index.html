@@ -12,6 +12,7 @@
             margin: 0;
             padding-bottom: 70px;
             text-align: center;
+            user-select: none;
         }
         .tab-content { padding: 15px; display: none; }
         .tab-content.active { display: block; }
@@ -47,6 +48,26 @@
             margin: 5px;
         }
 
+        /* Кнопка кликера */
+        .clicker-btn {
+            width: 160px;
+            height: 160px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #2e89ff, #1a56db);
+            color: white;
+            font-size: 20px;
+            font-weight: bold;
+            border: none;
+            box-shadow: 0 8px 20px rgba(46, 137, 255, 0.4);
+            cursor: pointer;
+            margin: 20px auto;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.1s;
+        }
+        .clicker-btn:active { transform: scale(0.92); }
+
         /* Навигация */
         .bottom-nav {
             position: fixed;
@@ -66,7 +87,7 @@
         }
         .bottom-nav button.active-nav { color: #2e89ff; }
 
-        /* Карточки рынка и инвентаря */
+        /* Карточки */
         .card {
             background: #1f2023;
             border: 1px solid #2d2e32;
@@ -77,6 +98,7 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
+            text-align: left;
         }
         .rarity-Обычный { color: #b0b3b8; }
         .rarity-Редкий { color: #2e89ff; }
@@ -91,15 +113,22 @@
 </head>
 <body>
 
-    <!-- ВКЛАДКА 1: ФЕРМА -->
+    <!-- ВКЛАДКА 1: ФЕРМА И КЛИКЕР -->
     <div id="tab-game" class="tab-content active">
         <h2>🌱 Нейроферма</h2>
         <div class="score-board">
             Монеты: <span id="coins-val">0</span> 🪙<br>
-            Токены: <span id="tokens-val">0</span> 💎
+            Токены: <span id="tokens-val">0</span> 💎<br>
+            Доход за тап: <span id="click-power">1</span> 🪙
         </div>
-        <button onclick="openBox()">📦 Открыть ящик</button>
-        <p id="timer-box">Ящик готов!</p>
+        
+        <!-- Кликер -->
+        <button class="clicker-btn" onclick="tapCoin()">ТАП! ⚡</button>
+
+        <div style="margin-top: 20px;">
+            <button onclick="openBox()">📦 Открыть ящик</button>
+            <p id="timer-box" style="font-size: 14px; color: #90949c;">Ящик готов!</p>
+        </div>
     </div>
 
     <!-- ВКЛАДКА 2: МАГАЗИН (Улучшения + Рынок) -->
@@ -113,18 +142,24 @@
         <!-- Улучшения -->
         <div id="sub-upgrades" class="sub-shop-content active">
             <div class="card">
-                <span>Авто-тап (100 🪙)</span>
-                <button onclick="buyUpgrade('auto')">Купить</button>
+                <div>
+                    <b>Улучшенный клик (+1)</b><br>
+                    <small>Цена: 50 монет</small>
+                </div>
+                <button onclick="buyUpgradeClick()">Купить</button>
             </div>
             <div class="card">
-                <span>Вечный х2 доход (250 🪙)</span>
-                <button onclick="buyUpgrade('perm2')">Купить</button>
+                <div>
+                    <b>Авто-тап (3 клика/сек)</b><br>
+                    <small>Цена: 100 монет</small>
+                </div>
+                <button onclick="buyUpgradeAuto()">Купить</button>
             </div>
         </div>
 
         <!-- Рынок -->
         <div id="sub-market" class="sub-shop-content">
-            <p>Обновление рынка через: <span id="market-timer">05:00</span></p>
+            <p style="font-size: 14px;">Обновление рынка через: <span id="market-timer">05:00</span></p>
             <div id="market-container">Загрузка рынка...</div>
             
             <hr style="border-color: #2d2e32; margin: 15px 0;">
@@ -140,7 +175,7 @@
         <h2>🎒 Инвентарь</h2>
         <div class="score-board" style="background: #242526;">
             <h3>Обмен токенов 💎</h3>
-            <p>1 Токен = 1,000,000 Монет</p>
+            <p style="font-size: 13px; color: #90949c;">1 Токен = 1,000,000 Монет</p>
             <input type="number" id="ex-amount" min="1" value="1" style="width: 80px;">
             <button onclick="exchangeTokens()">Обменять</button>
         </div>
@@ -151,9 +186,9 @@
     <!-- ВКЛАДКА 4: РАЗВЛЕЧЕНИЯ -->
     <div id="tab-fun" class="tab-content">
         <h2>🎲 Развлечения</h2>
-        <div class="card" style="flex-direction: column; text-align: center;">
+        <div class="card" style="flex-direction: column; text-align: center; max-width: 350px; margin: 0 auto;">
             <h3>Рулетка удачи 🎰</h3>
-            <p>Шанс выиграть x2 от ставки (50%)</p>
+            <p style="font-size: 13px; color: #90949c;">Шанс выиграть x2 от ставки (50%)</p>
             <input type="number" id="bet-val" value="10" placeholder="Ставка">
             <button onclick="playRoulette()">Крутить рулетку</button>
             <p id="roulette-msg" style="font-weight: bold; margin-top: 10px;"></p>
@@ -176,6 +211,8 @@
     let s = {
         coins: 100,
         tokens: 5,
+        clickPower: 1,
+        autoClicker: false,
         inv: { "cooler": 1 },
         next: 0,
         mine: []
@@ -210,21 +247,65 @@
     function updateUI() {
         document.getElementById('coins-val').innerText = s.coins;
         document.getElementById('tokens-val').innerText = s.tokens || 0;
+        document.getElementById('click-power').innerText = s.clickPower || 1;
         
-        // Инвентарь рендер
         let invDiv = document.getElementById('inv-container');
         let selectDiv = document.getElementById('my-items-select');
         invDiv.innerHTML = "";
         selectDiv.innerHTML = "";
 
         if(Object.keys(s.inv).length === 0) {
-            invDiv.innerHTML = "<p>Инвентарь пуст</p>";
+            invDiv.innerHTML = "<p style='color: #90949c;'>Инвентарь пуст</p>";
         } else {
             for(let [item, count] of Object.entries(s.inv)) {
                 if(count <= 0) continue;
                 invDiv.innerHTML += `<div class="card"><span>${item}</span> <b>x${count}</b></div>`;
                 selectDiv.innerHTML += `<option value="${item}">${item} (x${count})</option>`;
             }
+        }
+    }
+
+    // Кликер
+    function tapCoin() {
+        let power = s.clickPower || 1;
+        s.coins += power;
+        updateUI();
+        saveProgress();
+    }
+
+    // Авто-кликер (каждую секунду 3 клика, если куплен)
+    setInterval(() => {
+        if(s.autoClicker) {
+            s.coins += 3;
+            updateUI();
+        }
+    }, 1000);
+
+    // Покупка улучшений клика
+    function buyUpgradeClick() {
+        let cost = 50;
+        if(s.coins >= cost) {
+            s.coins -= cost;
+            s.clickPower = (s.clickPower || 1) + 1;
+            updateUI();
+            saveProgress();
+            alert("Сила клика увеличена!");
+        } else {
+            alert("Не хватает монет!");
+        }
+    }
+
+    function buyUpgradeAuto() {
+        let cost = 100;
+        if(s.autoClicker) { alert("Уже куплено!"); return; }
+        if(s.coins >= cost) {
+            s.coins -= cost;
+            s.autoClicker = true;
+            updateUI();
+            saveProgress();
+            alert("Авто-тап активирован!");
+        } else {
+            alert("Не хватает монет!");
         }
     }
 
@@ -252,7 +333,7 @@
             });
             let data = await res.json();
             if(data.error) { alert(data.error); return; }
-            s = data.state;
+            s = Object.assign(s, data.state);
             alert(`🎉 Вам выпал предмет: ${data.item}!`);
             updateUI();
         } catch(e) { console.error(e); }
@@ -279,7 +360,7 @@
         let container = document.getElementById('market-container');
         container.innerHTML = "";
         if(marketLots.length === 0) {
-            container.innerHTML = "<p>Рынок пуст. Ждите обновления.</p>";
+            container.innerHTML = "<p style='color: #90949c;'>Рынок пуст. Ждите обновления.</p>";
             return;
         }
         marketLots.forEach(lot => {
@@ -306,7 +387,7 @@
         });
         let data = await res.json();
         if(data.error) { alert(data.error); return; }
-        s = data.state;
+        s = Object.assign(s, data.state);
         marketLots = data.lots;
         renderMarket();
         updateUI();
@@ -325,7 +406,7 @@
         });
         let data = await res.json();
         if(data.error) { alert(data.error); return; }
-        s = data.state;
+        s = Object.assign(s, data.state);
         marketLots = data.lots;
         renderMarket();
         updateUI();
