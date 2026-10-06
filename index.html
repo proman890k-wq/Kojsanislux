@@ -65,7 +65,7 @@ body.overheat .core{animation:shake .2s infinite}
 .row b{display:block}.row small{color:var(--dim)}
 .em{font-size:28px}
 .acts{display:flex;flex-wrap:wrap;gap:6px;width:100%}
-.acts input, .auth-box input{width:100%;padding:11px 14px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--text);font:700 14px Manrope,sans-serif;outline:none;user-select:text}
+.acts input, .auth-form input{width:100%;padding:11px 14px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--text);font:700 14px Manrope,sans-serif;outline:none;user-select:text}
 .acts input{width:84px}
 .buy{min-width:92px;padding:9px 10px;border:0;border-radius:9px;background:var(--neon);color:#04251c;font:700 13px Manrope,sans-serif;transition:transform .1s}
 .buy:active{transform:scale(.94)}
@@ -84,7 +84,7 @@ h3{margin:14px 0 8px;font-size:14px;color:var(--dim)}
 .auth-container{width:100%;max-width:380px;background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:24px;box-shadow:0 10px 40px rgba(0,0,0,0.5)}
 .auth-container h2{margin:0 0 16px;text-align:center;font-family:Unbounded,sans-serif;font-size:20px;color:var(--neon)}
 .auth-form{display:flex;flex-direction:column;gap:12px;margin-top:16px}
-.auth-btn{width:100%;padding:12px;border:0;border-radius:10px;background:var(--neon);color:#04251c;font:700 15px Manrope,sans-serif;cursor:pointer;margin-top:4px}
+.auth-btn{width:100%;padding:12px;border:0;border-radius:10px;background:var(--neon);color:#04251c;font:700 15px Manrope,sans-serif;cursor:pointer;margin-top:4px;transition:transform .1s}
 .auth-btn:active{transform:scale(0.98)}
 
 [hidden]{display:none!important}
@@ -157,6 +157,7 @@ const API = "https://your-server-domain.com/api"; // Укажи адрес св�
 
 // ---------- Логика авторизации и регистрации ----------
 const AUTH_KEY = "neurofarm_auth_user";
+
 function checkAuthUser() {
   const savedUser = localStorage.getItem(AUTH_KEY);
   if (savedUser) {
@@ -177,12 +178,17 @@ authTabs.addEventListener("click", e => {
 });
 
 // Кнопка входа
-$("loginBtn").onclick = () => {
+$("loginBtn").onclick = async () => {
   const u = $("loginUser").value.trim();
   const p = $("loginPass").value.trim();
   if(!u || !p) return toast("⚠️ Заполните все поля");
   
-  // Проверяем наличие локально или отправляем запрос на сервер
+  // Пример запроса к бэкенду (при необходимости можно заменить на локальную проверку)
+  const res = await api("/login", { username: u, password: p });
+  if (res && res.error) {
+    return toast("⚠️ " + res.error);
+  }
+
   localStorage.setItem(AUTH_KEY, u);
   toast("✅ Успешный вход!");
   setTimeout(() => {
@@ -193,10 +199,17 @@ $("loginBtn").onclick = () => {
 };
 
 // Кнопка регистрации
-$("regBtn").onclick = () => {
+$("regBtn").onclick = async () => {
   const u = $("regUser").value.trim();
   const p = $("regPass").value.trim();
-  if(!u || !p) return toast("⚠️️ Заполните все поля");
+  if(!u || !p) return toast("⚠️ Заполните все поля");
+  if(p.length < 4) return toast("⚠️ Пароль слишком короткий (от 4 символов)");
+
+  // Запрос на регистрацию на бэкенд
+  const res = await api("/register", { username: u, password: p });
+  if (res && res.error) {
+    return toast("⚠️ " + res.error);
+  }
   
   localStorage.setItem(AUTH_KEY, u);
   toast("🎉 Регистрация успешна!");
