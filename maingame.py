@@ -60,6 +60,9 @@ def get_user_id(request_data):
 
 # --- API Эндпоинты игры ---
 
+async def handle_index(request):
+    return web.Response(text="Bot is running!")
+
 async def handle_me(request):
     data = await request.json() if request.can_read_body else {}
     uid = get_user_id(data)
@@ -214,9 +217,10 @@ async def on_start(app):
     app["task"] = asyncio.create_task(poll(app))
 
 async def on_cleanup(app):
-    app["s"].close()
+    await app["s"].close()
 
 app = web.Application(middlewares=[cors])
+app.router.add_get("/", handle_index)
 app.router.add_route("*", "/api/invoice", invoice)
 app.router.add_route("*", "/api/me", handle_me)
 app.router.add_route("*", "/api/drop", handle_drop)
