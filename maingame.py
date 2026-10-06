@@ -16,7 +16,7 @@ TOKEN_TO_USD_RATE = 1_000_000
 USERS = {}
 
 # =========================
-# РЕЦЕПТЫ И ПРЕДМЕТЫ
+# БАЗА ПРЕДМЕТОВ И УЛУЧШЕНИЙ
 # =========================
 
 ITEMS = {
@@ -29,8 +29,6 @@ ITEMS = {
     "coins2": ("3000 монет биржи 🪙", "Выгоднее на 20%", 250),
 }
 
-# Предметы для рынка и ящиков с редкостями
-# (Имя, тип редкости, цена, шанс)
 ITEM_DATABASE = [
     {"id": "cooler", "name": "Кулер", "rarity": "Обычный", "price": 10, "chance": 60.0},
     {"id": "ram", "name": "Памятка RAM", "rarity": "Редкий", "price": 50, "chance": 25.0},
@@ -48,13 +46,10 @@ MARKET = {
 
 def refresh_market_if_needed():
     now = time.time()
-    # Обновляем каждые 5 минут (300 секунд)
     if now - MARKET["last_update"] > 300 or not MARKET["lots"]:
         MARKET["last_update"] = now
         new_lots = []
-        # Генерируем 4-6 случайных предметов на рынок
         for i in range(random.randint(4, 6)):
-            # Выбираем предмет по шансам
             rnd = random.uniform(0, 100)
             chosen_item = ITEM_DATABASE[0]
             cumulative = 0
@@ -83,8 +78,7 @@ def refresh_market_if_needed():
 async def call(session, method, **params):
     try:
         async with session.post(f"{API}/{method}", json=params) as response:
-            result = await response.json()
-            return result
+            return await response.json()
     except Exception as e:
         return {"ok": False, "error": str(e)}
 
@@ -132,7 +126,7 @@ async def handle_webhook(request):
             if uid not in USERS:
                 USERS[uid] = {
                     "coins": 100,
-                    "tokens": 0,
+                    "tokens": 5,
                     "inv": {"cooler": 1},
                     "next_box": 0,
                     "mine": [],
@@ -161,7 +155,7 @@ async def handle_me(request):
     if uid not in USERS:
         USERS[uid] = {
             "coins": 100,
-            "tokens": 0,
+            "tokens": 5,
             "inv": {"cooler": 1},
             "next_box": 0,
             "mine": [],
@@ -173,7 +167,7 @@ async def handle_me(request):
     if not response_state:
         response_state = {
             "coins": user["coins"],
-            "tokens": user.get("tokens", 0),
+            "tokens": user.get("tokens", 5),
             "inv": user["inv"],
             "next": user["next_box"],
             "mine": user["mine"]
@@ -192,7 +186,7 @@ async def handle_save(request):
     user_state = data.get("state")
 
     if uid not in USERS:
-        USERS[uid] = {"coins": 100, "tokens": 0, "inv": {}, "next_box": 0, "mine": [], "game_state": {}}
+        USERS[uid] = {"coins": 100, "tokens": 5, "inv": {}, "next_box": 0, "mine": [], "game_state": {}}
 
     if user_state and isinstance(user_state, dict):
         USERS[uid]["game_state"] = user_state
@@ -217,7 +211,6 @@ async def handle_drop(request):
     if now < user["next_box"]:
         return web.json_response({"error": "Ящик ещё не готов"}, status=400)
 
-    # Розыгрыш через шансы из базы
     value = random.uniform(0, 100)
     chosen_item = ITEM_DATABASE[0]["id"]
     cumulative = 0
@@ -248,7 +241,7 @@ async def handle_market(request):
         data = {}
 
     uid = get_user_id(data)
-    user = USERS.get(uid, {"coins": 100, "tokens": 0, "inv": {}, "next_box": 0, "mine": []})
+    user = USERS.get(uid, {"coins": 100, "tokens": 5, "inv": {}, "next_box": 0, "mine": []})
 
     state_data = user.get("game_state", {
         "coins": user["coins"],
@@ -258,7 +251,6 @@ async def handle_market(request):
         "mine": user["mine"]
     })
 
-    # Сколько осталось секунд до обновления рынка
     time_left = max(0, 300 - int(time.time() - MARKET["last_update"]))
 
     return web.json_response({
