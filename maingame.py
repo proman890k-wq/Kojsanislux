@@ -9,7 +9,7 @@ from aiohttp import web, ClientSession
 # НАСТРОЙКИ
 # =========================
 
-TOKEN = "ВСТАВЬ_СЮДА_НОВЫЙ_ТОКЕН_БОТА"
+TOKEN = "8307112310:AAFneoMo4ACr6SKTloHNQ9hVZIw1mf-apGQ"
 
 WEBAPP_URL = "https://proman80k-wq.github.io/Kojsanislux/"
 RENDER_URL = "https://game-2gla.onrender.com"
