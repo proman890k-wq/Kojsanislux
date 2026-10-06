@@ -65,8 +65,7 @@ body.overheat .core{animation:shake .2s infinite}
 .row b{display:block}.row small{color:var(--dim)}
 .em{font-size:28px}
 .acts{display:flex;flex-wrap:wrap;gap:6px;width:100%}
-.acts input, .auth-form input{width:100%;padding:11px 14px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--text);font:700 14px Manrope,sans-serif;outline:none;user-select:text}
-.acts input{width:84px}
+.acts input{width:84px;padding:8px;border-radius:9px;border:1px solid var(--line);background:var(--bg);color:var(--text);font:700 13px Manrope,sans-serif;user-select:text}
 .buy{min-width:92px;padding:9px 10px;border:0;border-radius:9px;background:var(--neon);color:#04251c;font:700 13px Manrope,sans-serif;transition:transform .1s}
 .buy:active{transform:scale(.94)}
 .buy:disabled{background:var(--line);color:var(--dim)}
@@ -78,52 +77,15 @@ body.overheat .core{animation:shake .2s infinite}
 .coins{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px}
 .coins b{font:800 20px Unbounded,sans-serif;color:var(--star)}
 h3{margin:14px 0 8px;font-size:14px;color:var(--dim)}
-
-/* Экран авторизации/регистрации */
-#authScreen{position:fixed;inset:0;z-index:999;background:var(--bg);display:grid;place-items:center;padding:20px}
-.auth-container{width:100%;max-width:380px;background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:24px;box-shadow:0 10px 40px rgba(0,0,0,0.5)}
-.auth-container h2{margin:0 0 16px;text-align:center;font-family:Unbounded,sans-serif;font-size:20px;color:var(--neon)}
-.auth-form{display:flex;flex-direction:column;gap:12px;margin-top:16px}
-.auth-btn{width:100%;padding:12px;border:0;border-radius:10px;background:var(--neon);color:#04251c;font:700 15px Manrope,sans-serif;cursor:pointer;margin-top:4px;transition:transform .1s}
-.auth-btn:active{transform:scale(0.98)}
-
 [hidden]{display:none!important}
 @media (prefers-reduced-motion:reduce){*{animation-duration:.01s!important}}
 </style>
 </head>
 <body>
-
-<!-- Экран авторизации и регистрации -->
-<div id="authScreen">
-  <div class="auth-container">
-    <h2>Нейроферма</h2>
-    <div class="tabs" id="authTabs">
-      <button data-t="login" class="on">Вход</button>
-      <button data-t="register">Регистрация</button>
-    </div>
-    
-    <!-- Форма входа -->
-    <div id="loginForm" class="auth-form">
-      <div class="sub">Введите ваш логин и пароль для входа:</div>
-      <input type="text" id="loginUser" placeholder="Логин или Email" autocomplete="username">
-      <input type="password" id="loginPass" placeholder="Пароль" autocomplete="current-password">
-      <button class="auth-btn" id="loginBtn">Войти в игру</button>
-    </div>
-
-    <!-- Форма регистрации -->
-    <div id="registerForm" class="auth-form" hidden>
-      <div class="sub">Создайте новый аккаунт в системе:</div>
-      <input type="text" id="regUser" placeholder="Придумайте логин" autocomplete="username">
-      <input type="password" id="regPass" placeholder="Придумайте пароль" autocomplete="new-password">
-      <button class="auth-btn" id="regBtn">Зарегистрироваться</button>
-    </div>
-  </div>
-</div>
-
 <canvas id="fx"></canvas>
 <div class="toast" id="toast"></div>
 <div class="ev" id="ev" hidden><b id="evt"></b><small id="evd"></small><div class="cbar"><i id="evb"></i></div></div>
-<div class="wrap" id="gameWrap" hidden>
+<div class="wrap">
   <div class="top">
     <div class="bal" id="bal">0</div>
     <div class="sub"><span id="ps">0</span> токенов/сек · веса: <span id="wt">0</span></div>
@@ -154,75 +116,6 @@ h3{margin:14px 0 8px;font-size:14px;color:var(--dim)}
 <script>
 const tg = window.Telegram?.WebApp; tg?.ready(); tg?.expand();
 const API = "https://your-server-domain.com/api"; // Укажи адрес своего Python сервера
-
-// ---------- Логика авторизации и регистрации ----------
-const AUTH_KEY = "neurofarm_auth_user";
-
-function checkAuthUser() {
-  const savedUser = localStorage.getItem(AUTH_KEY);
-  if (savedUser) {
-    $("authScreen").hidden = true;
-    $("gameWrap").hidden = false;
-    initGame();
-  }
-}
-
-// Переключение табов в окне авторизации
-const authTabs = $("authTabs");
-authTabs.addEventListener("click", e => {
-  const t = e.target.dataset.t;
-  if(!t) return;
-  [...authTabs.children].forEach(b => b.classList.toggle("on", b === e.target));
-  $("loginForm").hidden = (t !== "login");
-  $("registerForm").hidden = (t !== "register");
-});
-
-// Кнопка входа
-$("loginBtn").onclick = async () => {
-  const u = $("loginUser").value.trim();
-  const p = $("loginPass").value.trim();
-  if(!u || !p) return toast("⚠️ Заполните все поля");
-  
-  // Пример запроса к бэкенду (при необходимости можно заменить на локальную проверку)
-  const res = await api("/login", { username: u, password: p });
-  if (res && res.error) {
-    return toast("⚠️ " + res.error);
-  }
-
-  localStorage.setItem(AUTH_KEY, u);
-  toast("✅ Успешный вход!");
-  setTimeout(() => {
-    $("authScreen").hidden = true;
-    $("gameWrap").hidden = false;
-    initGame();
-  }, 500);
-};
-
-// Кнопка регистрации
-$("regBtn").onclick = async () => {
-  const u = $("regUser").value.trim();
-  const p = $("regPass").value.trim();
-  if(!u || !p) return toast("⚠️ Заполните все поля");
-  if(p.length < 4) return toast("⚠️ Пароль слишком короткий (от 4 символов)");
-
-  // Запрос на регистрацию на бэкенд
-  const res = await api("/register", { username: u, password: p });
-  if (res && res.error) {
-    return toast("⚠️ " + res.error);
-  }
-  
-  localStorage.setItem(AUTH_KEY, u);
-  toast("🎉 Регистрация успешна!");
-  setTimeout(() => {
-    $("authScreen").hidden = true;
-    $("gameWrap").hidden = false;
-    initGame();
-  }, 500);
-};
-
-// Проверяем авторизацию при загрузке
-checkAuthUser();
-
 
 const GENS = [
   ["Старый ноутбук",15,0.1,"#8d96b2"],["Домашняя видеокарта",100,1,"#5df2c4"],["Серверная стойка",1100,8,"#4da3ff"],
@@ -441,18 +334,14 @@ function ui(){
 }
 
 // ---------- офлайн-доход ----------
-function initGame() {
-  {const cap = (2 + s.oh + (s.off?6:0)) * 3600, sec = Math.min(cap, (Date.now()-s.last)/1000);
-   if(sec > 30){const e = ps()*sec; gain(e); if(e > 0) setTimeout(() => toast(`Пока вас не было: +${fmt(e)} токенов`), 500)}}
+{const cap = (2 + s.oh + (s.off?6:0)) * 3600, sec = Math.min(cap, (Date.now()-s.last)/1000);
+ if(sec > 30){const e = ps()*sec; gain(e); if(e > 0) setTimeout(() => toast(`Пока вас не было: +${fmt(e)} токенов`), 500)}}
 
-  let prev = performance.now(), saveT = 0;
-  setInterval(()=>{const n = performance.now(), dt = Math.min((n-prev)/1000, 1); prev = n;
-    gain(ps()*dt); if(s.auto) gain(3*tapPow()*dt);
-    ui(); saveT += dt; if(saveT > 2){saveT = 0; save()}}, 100);
-  document.addEventListener("visibilitychange", save);
-
-  refresh(); ui();
-}
+let prev = performance.now(), saveT = 0;
+setInterval(()=>{const n = performance.now(), dt = Math.min((n-prev)/1000, 1); prev = n;
+  gain(ps()*dt); if(s.auto) gain(3*tapPow()*dt);
+  ui(); saveT += dt; if(saveT > 2){saveT = 0; save()}}, 100);
+document.addEventListener("visibilitychange", save);
 
 // ---------- тап ----------
 const core = $("core");
@@ -509,6 +398,8 @@ $("items").addEventListener("click", async e => {
     if(confirm(`ТЕСТ: Оплатить «${ITEMS[id].n}»?`)) { grant(id); }
   }
 });
+
+refresh(); ui();
 </script>
 </body>
 </html>
