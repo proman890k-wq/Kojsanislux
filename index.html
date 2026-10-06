@@ -115,7 +115,7 @@ h3{margin:14px 0 8px;font-size:14px;color:var(--dim)}
 
 <script>
 const tg = window.Telegram?.WebApp; tg?.ready(); tg?.expand();
-const API = "https://your-server-domain.com/api"; // Укажи адрес своего Python сервера (например, https://xxxx.ngrok-free.app/api или оставь пустым для теста)
+const API = "https://your-server-domain.com/api"; // Укажи адрес своего Python сервера
 
 const GENS = [
   ["Старый ноутбук",15,0.1,"#8d96b2"],["Домашняя видеокарта",100,1,"#5df2c4"],["Серверная стойка",1100,8,"#4da3ff"],
@@ -124,7 +124,7 @@ const GENS = [
 const UP = [
   {k:"tap",n:"Тонкая настройка",d:l=>`Сила тапа +${l}`,b:25,g:1.8,m:999},
   {k:"cr",n:"Шанс крита",d:l=>`Шанс ×5: ${8+l}%`,b:400,g:2.2,m:22},
-  {k:"oh",n:"Склад времени",d:l=>`Офлайн-доход: до ${2+l+(s.off?6:0)} ч`,b:2000,g:3,m:4},
+  {k:"oh",n:"Склад времени",d:l=>`Офлайн-доход: до ${2+l+(s?.off?6:0)} ч`,b:2000,g:3,m:4},
   {k:"ev",n:"Бонус событий",d:l=>`Награды событий +${l*25}%`,b:1500,g:2.5,m:10}
 ];
 const ITEMS = {
@@ -136,69 +136,74 @@ const ITEMS = {
   coins1:{n:"500 монет биржи 🪙",d:"Для покупок у других игроков",p:50,c:500},
   coins2:{n:"3000 монет биржи 🪙",d:"Выгоднее на 20%",p:250,c:3000}
 };
-const RAR={c:[/*[cite: 1] */ "обычный","#8d96b2"],u:[/*[cite: 1] */ "редкий","#4da3ff"],r:[/*[cite: 1] */ "эпик","#b27bff"],e:[/*[cite: 1] */ "легенда","#ffc93c"]};
-const DEF={
+const RAR = {
+  c: ["обычный", "#8d96b2"],
+  u: ["редкий", "#4da3ff"],
+  r: ["эпик", "#b27bff"],
+  e: ["легенда", "#ffc93c"]
+};
+const DEF = {
   cooler:{n:"Охлаждающая жижа",e:"🧊",r:"c",d:"Доход ×1.5 на 5 минут",npc:10},
   ram:{n:"Планка памяти",e:"💾",r:"u",d:"Сразу +30 минут дохода",npc:40},
   gpu:{n:"Золотая GPU",e:"🎮",r:"r",d:"Доход ×3 на 10 минут",npc:150},
   core:{n:"Ядро сингулярности",e:"🌀",r:"e",d:"+1 вес навсегда",npc:500}
 };
-const MILES=[1e2,1e3,1e4,1e5,1e6,1e7,1e9,1e12];
-const KEY="neurofarm2";
-const def=()=>({t:0,run:0,tot:0,g:GENS.map(()=>0),tap:0,cr:0,oh:0,ev:0,w:0,bu:0,bm:1,fr:0,im:1,iu:0,auto:0,off:0,perm:0,ach:0,last:Date.now()});
-let s=Object.assign(def(),JSON.parse(localStorage.getItem(KEY)||"{}"));
-if(s.g.length<GENS.length)s.g=GENS.map((_,i)=>s.g[i]||0);
+const MILES = [1e2,1e3,1e4,1e5,1e6,1e7,1e9,1e12];
+const KEY = "neurofarm2";
+const def = () => ({t:0,run:0,tot:0,g:GENS.map(()=>0),tap:0,cr:0,oh:0,ev:0,w:0,bu:0,bm:1,fr:0,im:1,iu:0,auto:0,off:0,perm:0,ach:0,last:Date.now()});
+let s = Object.assign(def(), JSON.parse(localStorage.getItem(KEY)||"{}"));
+if(s.g.length < GENS.length) s.g = GENS.map((_,i) => s.g[i]||0);
 
-const $=id=>document.getElementById(id);
-const fmt=n=>{const u=["","K","M","B","T","Qa","Qi"];let i=0;while(n>=1000&&i<u.length-1){n/=1000;i++}return (i?n.toFixed(n<10?2:n<100?1:0):Math.floor(n))+u[i]};
-const boostOn=()=>s.bu>Date.now(),frOn=()=>s.fr>Date.now(),itemOn=()=>s.iu>Date.now();
-const mult=()=>(1+0.1*s.w)*(s.perm?2:1)*(boostOn()?s.bm:1)*(frOn()?7:1)*(itemOn()?s.im:1);
-const ps=()=>GENS.reduce((a,g,i)=>a+s.g[i]*g[2],0)*mult();
-const tapPow=()=>(1+s.tap)*mult();
-const gCost=i=>Math.ceil(GENS[i][1]*Math.pow(1.15,s.g[i]));
-const uCost=u=>Math.ceil(u.b*Math.pow(u.g,s[u.k]));
-const gain=n=>{s.t+=n;s.run+=n;s.tot+=n};
-const prestigeGain=()=>Math.floor(Math.sqrt(s.run/1e5));
-const save=()=>{s.last=Date.now();localStorage.setItem(KEY,JSON.stringify(s))};
-const hap=(t,k="impactOccurred")=>tg?.HapticFeedback?.[k]?.(t);
-const mmss=ms=>{const r=Math.max(0,Math.ceil(ms/1000));return Math.floor(r/60)+":"+String(r%60).padStart(2,"0")};
+const $ = id => document.getElementById(id);
+const fmt = n => {const u=["","K","M","B","T","Qa","Qi"];let i=0;while(n>=1000&&i<u.length-1){n/=1000;i++}return (i?n.toFixed(n<10?2:n<100?1:0):Math.floor(n))+u[i]};
+const boostOn = () => s.bu > Date.now(), frOn = () => s.fr > Date.now(), itemOn = () => s.iu > Date.now();
+const mult = () => (1 + 0.1 * s.w) * (s.perm ? 2 : 1) * (boostOn() ? s.bm : 1) * (frOn() ? 7 : 1) * (itemOn() ? s.im : 1);
+const ps = () => GENS.reduce((a,g,i) => a + s.g[i] * g[2], 0) * mult();
+const tapPow = () => (1 + s.tap) * mult();
+const gCost = i => Math.ceil(GENS[i][1] * Math.pow(1.15, s.g[i]));
+const uCost = u => Math.ceil(u.b * Math.pow(u.g, s[u.k]));
+const gain = n => {s.t += n; s.run += n; s.tot += n};
+const prestigeGain = () => Math.floor(Math.sqrt(s.run / 1e5));
+const save = () => {s.last = Date.now(); localStorage.setItem(KEY, JSON.stringify(s))};
+const hap = (t, k="impactOccurred") => tg?.HapticFeedback?.[k]?.(t);
+const mmss = ms => {const r = Math.max(0, Math.ceil(ms/1000)); return Math.floor(r/60) + ":" + String(r%60).padStart(2,"0")};
 
 let toastT;
-function toast(msg){const e=$("toast");e.textContent=msg;e.classList.add("show");clearTimeout(toastT);toastT=setTimeout(()=>e.classList.remove("show"),2600)}
+function toast(msg){const e = $("toast"); e.textContent = msg; e.classList.add("show"); clearTimeout(toastT); toastT = setTimeout(() => e.classList.remove("show"), 2600)}
 
 // ---------- частицы ----------
-const cv=$("fx"),cx=cv.getContext("2d");let P=[],W=0,H=0;
-function size(){const d=devicePixelRatio||1;W=innerWidth;H=innerHeight;cv.width=W*d;cv.height=H*d;cx.setTransform(d,0,0,d,0,0)}
-addEventListener("resize",size);size();
-function burst(x,y,n,color,speed=5){for(let i=0;i<n;i++){const a=Math.random()*6.283,v=(0.4+Math.random())*speed;P.push({x,y,vx:Math.cos(a)*v,vy:Math.sin(a)*v-1,l:0,m:30+Math.random()*25,r:2+Math.random()*3,c:color,g:0.12})}}
-const coreXY=()=>{const r=$("core").getBoundingClientRect();return [r.left+r.width/2,r.top+r.height/2]};
+const cv = $("fx"), cx = cv.getContext("2d"); let P = [], W = 0, H = 0;
+function size(){const d = devicePixelRatio || 1; W = innerWidth; H = innerHeight; cv.width = W * d; cv.height = H * d; cx.setTransform(d,0,0,d,0,0)}
+addEventListener("resize", size); size();
+function burst(x, y, n, color, speed=5){for(let i=0; i<n; i++){const a = Math.random()*6.283, v = (0.4+Math.random())*speed; P.push({x, y, vx:Math.cos(a)*v, vy:Math.sin(a)*v-1, l:0, m:30+Math.random()*25, r:2+Math.random()*3, c:color, g:0.12})}}
+const coreXY = () => {const r = $("core").getBoundingClientRect(); return [r.left+r.width/2, r.top+r.height/2]};
 function frame(){
-  cx.clearRect(0,0,W,H);
-  const rate=Math.min(0.5,0.03+Math.log10(1+ps())*0.05);
-  if(Math.random()<rate&&P.length<220)P.push({x:Math.random()*W,y:H+10,vx:0,vy:-(0.5+Math.random()*1.2),l:0,m:H/1.2,t:Math.random()<.5?"0":"1",r:12+Math.random()*6,c:document.body.classList.contains("hot")?"#ffc93c":"#5df2c4",g:0,bg:1});
-  for(let i=P.length-1;i>=0;i--){const p=P[i];p.l++;p.x+=p.vx;p.y+=p.vy;p.vy+=p.g;
-    const a=Math.max(0,1-p.l/p.m);if(p.l>=p.m){P.splice(i,1);continue}
-    cx.globalAlpha=p.bg?a*0.22:a;cx.fillStyle=p.c;
-    if(p.bg){cx.font=`700 ${p.r}px Unbounded,monospace`;cx.fillText(p.t,p.x,p.y)}else{cx.beginPath();cx.arc(p.x,p.y,p.r*a+0.5,0,6.283);cx.fill()}}
-  cx.globalAlpha=1;requestAnimationFrame(frame)}
+  cx.clearRect(0, 0, W, H);
+  const rate = Math.min(0.5, 0.03 + Math.log10(1+ps()) * 0.05);
+  if(Math.random() < rate && P.length < 220) P.push({x:Math.random()*W, y:H+10, vx:0, vy:-(0.5+Math.random()*1.2), l:0, m:H/1.2, t:Math.random()<.5?"0":"1", r:12+Math.random()*6, c:document.body.classList.contains("hot")?"#ffc93c":"#5df2c4", g:0, bg:1});
+  for(let i = P.length-1; i >= 0; i--){const p = P[i]; p.l++; p.x += p.vx; p.y += p.vy; p.vy += p.g;
+    const a = Math.max(0, 1 - p.l/p.m); if(p.l >= p.m){P.splice(i,1); continue}
+    cx.globalAlpha = p.bg ? a*0.22 : a; cx.fillStyle = p.c;
+    if(p.bg){cx.font = `700 ${p.r}px Unbounded,monospace`; cx.fillText(p.t, p.x, p.y)}else{cx.beginPath(); cx.arc(p.x, p.y, p.r*a+0.5, 0, 6.283); cx.fill()}}
+  cx.globalAlpha = 1; requestAnimationFrame(frame)}
 frame();
 
 // ---------- разметка ----------
-$("sats").innerHTML=GENS.map((g,i)=>`<div class="sat" id="sat${i}" style="--c:${g[3]};--r:${86+i*8}px;--d:${5+i*2.2}s;--a:${i*60}deg"></div>`).join("");
-$("gens").innerHTML=GENS.map((g,i)=>`<div class="row" id="r${i}"><div class="info"><b>${g[0]} <span class="cnt" id="c${i}"></span></b><small>+${fmt(g[2])}/сек каждый</small></div><button class="buy" data-g="${i}" id="b${i}"></button></div>`).join("");
-$("ups").innerHTML=UP.map(u=>`<div class="row"><div class="info"><b>${u.n} <span class="cnt" id="ul_${u.k}"></span></b><small id="ud_${u.k}"></small></div><button class="buy" data-u="${u.k}" id="ub_${u.k}"></button></div>`).join("");
-$("items").innerHTML=Object.entries(ITEMS).map(([k,v])=>`<div class="row"><div class="info"><b>${v.n}</b><small>${v.d}</small></div><button class="buy star" data-i="${k}" id="s_${k}">${v.p} ⭐</button></div>`).join("");
+$("sats").innerHTML = GENS.map((g,i)=>`<div class="sat" id="sat${i}" style="--c:${g[3]};--r:${86+i*8}px;--d:${5+i*2.2}s;--a:${i*60}deg"></div>`).join("");
+$("gens").innerHTML = GENS.map((g,i)=>`<div class="row" id="r${i}"><div class="info"><b>${g[0]} <span class="cnt" id="c${i}"></span></b><small>+${fmt(g[2])}/сек каждый</small></div><button class="buy" data-g="${i}" id="b${i}"></button></div>`).join("");
+$("ups").innerHTML = UP.map(u=>`<div class="row"><div class="info"><b>${u.n} <span class="cnt" id="ul_${u.k}"></span></b><small id="ud_${u.k}"></small></div><button class="buy" data-u="${u.k}" id="ub_${u.k}"></button></div>`).join("");
+$("items").innerHTML = Object.entries(ITEMS).map(([k,v])=>`<div class="row"><div class="info"><b>${v.n}</b><small>${v.d}</small></div><button class="buy star" data-i="${k}" id="s_${k}">${v.p} ⭐</button></div>`).join("");
 
-function bind(sel,ids,cb){$(sel).addEventListener("click",e=>{const t=e.target.dataset.t;if(!t)return;[...e.currentTarget.children].forEach(b=>b.classList.toggle("on",b===e.target));ids.forEach(i=>$(i).hidden=i!==t);cb&&cb(t)})}
-bind("tabs",["farm","shop","market"],t=>{if(t==="market")loadMarket()});
-bind("shopchips",["ups","don"]);
-bind("mchips",["mk","bag"],()=>loadMarket());
+function bind(sel, ids, cb){$(sel).addEventListener("click", e => {const t = e.target.dataset.t; if(!t) return; [...e.currentTarget.children].forEach(b => b.classList.toggle("on", b === e.target)); ids.forEach(i => $(i).hidden = i !== t); cb && cb(t)})}
+bind("tabs", ["farm","shop","market"], t => {if(t === "market") loadMarket()});
+bind("shopchips", ["ups","don"]);
+bind("mchips", ["mk","bag"], () => loadMarket());
 
-// ---------- Серверные запросы (синхронизация с Python бэкендом) ----------
-let st={coins:0,inv:{},next:0,mine:[],rate:1000000},lots=[];
+// ---------- Серверные запросы ----------
+let st = {coins:0, inv:{}, next:0, mine:[], rate:1000000}, lots = [];
 const userId = tg?.initDataUnsafe?.user?.id || "test_user";
 
-async function api(p,b={}){
+async function api(p, b={}){
   if(!API) return {error:"Нет API"};
   try{
     const r = await fetch(API + p, {
@@ -210,181 +215,186 @@ async function api(p,b={}){
   }catch(e){ return {error:"Ошибка сети бэкенда"} }
 }
 
-async function act(p,b){
-  const r = await api(p,b);
-  if(r.error){ toast("⚠️ "+r.error); return null; }
+async function act(p, b){
+  const r = await api(p, b);
+  if(!r || r.error){ toast("⚠️ " + (r?.error || "Сетевая ошибка")); return null; }
   if(r.state) st = Object.assign(st, r.state);
   return r;
 }
 
-const refresh = async()=>{ const r = await api("/me"); if(r?.state) st = Object.assign(st, r.state); };
+const refresh = async () => { const r = await api("/me"); if(r?.state) st = Object.assign(st, r.state); };
 
 // ---------- ящик с предметами ----------
-$("chest").onclick=async()=>{
-  if(Date.now()<st.next)return;
-  const r = await act("/drop",{});
-  if(!r)return;
-  const d=DEF[r.item];
-  toast(`📦 Выпало: ${d.e} ${d.n} (${RAR[d.r][0]}[cite: 1])`);
-  const [x,y]=coreXY(); burst(x,y,70,RAR[d.r][1][cite: 1],9); hap("success","notificationOccurred");
+$("chest").onclick = async () => {
+  if(Date.now() < st.next) return;
+  const r = await act("/drop", {});
+  if(!r) return;
+  const d = DEF[r.item];
+  if(!d) return;
+  toast(`📦 Выпало: ${d.e} ${d.n} (${RAR[d.r][0]})`);
+  const [x,y] = coreXY(); burst(x, y, 70, RAR[d.r][1], 9); hap("success","notificationOccurred");
 };
 
 // ---------- биржа ----------
-const card=(it,inner)=>{const d=DEF[it];return `<div class="row" style="border-left:4px solid ${RAR[d.r][1][cite: 1]}">${inner(d)}</div>`};
+const card = (it, inner) => {const d = DEF[it]; return d ? `<div class="row" style="border-left:4px solid ${RAR[d.r][1]}">${inner(d)}</div>` : ''};
 function rMarket(){
-  $("coins").textContent=fmt(st.coins);
-  $("mk").innerHTML=lots.length?lots.map(l=>card(l.item,d=>`<div class="em">${d.e}</div><div class="info"><b>${d.n}</b><small>${RAR[d.r][0][cite: 1]} · ${d.d}</small></div><button class="buy" data-buy="${l.id}" ${l.mine||st.coins<l.price?"disabled":""}>${l.mine?"Ваш лот":fmt(l.price)+" 🪙"}</button>`)).join(""):'<p class="sub">Лотов пока нет. Выставь свой предмет из рюкзака.</p>';
+  $("coins").textContent = fmt(st.coins);
+  $("mk").innerHTML = lots.length ? lots.map(l => card(l.item, d => `<div class="em">${d.e}</div><div class="info"><b>${d.n}</b><small>${RAR[d.r][0]} · ${d.d}</small></div><button class="buy" data-buy="${l.id}" ${l.mine || st.coins < l.price ? "disabled" : ""}>${l.mine ? "Ваш лот" : fmt(l.price) + " 🪙"}</button>`)).join("") : '<p class="sub">Лотов пока нет. Выставь свой предмет из рюкзака.</p>';
 }
 function rBag(){
-  const inv=Object.entries(st.inv||{});
-  $("bag").innerHTML=(inv.length?inv.map(([k,q])=>card(k,d=>`<div class="em">${d.e}</div><div class="info"><b>${d.n} ×${q}</b><small>${RAR[d.r][0][cite: 1]} · ${d.d}</small></div>
+  const inv = Object.entries(st.inv || {});
+  $("bag").innerHTML = (inv.length ? inv.map(([k,q]) => card(k, d => `<div class="em">${d.e}</div><div class="info"><b>${d.n} ×${q}</b><small>${RAR[d.r][0]} · ${d.d}</small></div>
    <div class="acts"><button class="buy" data-use="${k}">Применить</button>
-   <input type="number" inputmode="numeric" min="1" id="p_${k}" value="${d.npc*2}"><button class="buy alt" data-list="${k}">Выставить</button></div>`)).join(""):'<p class="sub">Рюкзак пуст. Открывай ящики 📦[cite: 1].</p>')
-  +((st.mine||[]).length?'<h3>Мои лоты</h3>'+st.mine.map(l=>card(l.item,d=>`<div class="em">${d.e}</div><div class="info"><b>${d.n}</b><small>Цена ${fmt(l.price)} 🪙</small></div>`)).join(""):"");
+   <input type="number" inputmode="numeric" min="1" id="p_${k}" value="${d.npc*2}"><button class="buy alt" data-list="${k}">Выставить</button></div>`)).join("") : '<p class="sub">Рюкзак пуст. Открывай ящики 📦.</p>')
+  + ((st.mine || []).length ? '<h3>Мои лоты</h3>' + st.mine.map(l => card(l.item, d => `<div class="em">${d.e}</div><div class="info"><b>${d.n}</b><small>Цена ${fmt(l.price)} 🪙</small></div>`)).join("") : "");
 }
 async function loadMarket(){
-  const r = await act("/market",{});
+  const r = await act("/market", {});
   if(r){ lots = r.lots || []; rMarket(); rBag(); }
 }
 
 function applyItem(k){
-  const now=Date.now();
-  if(k==="cooler"||k==="gpu"){const m=k==="gpu"?3:1.5,t=(k==="gpu"?600:300)*1000;s.im=itemOn()?Math.max(s.im,m):m;s.iu=(itemOn()?s.iu:now)+t}
-  else if(k==="ram")gain(ps()*1800);else if(k==="core")s.w++;
-  toast(`${DEF[k].e} ${DEF[k].n}: активировано`); const [x,y]=coreXY(); burst(x,y,60,RAR[DEF[k].r][1][cite: 1],9); save();
+  const now = Date.now();
+  if(k === "cooler" || k === "gpu"){const m = k === "gpu" ? 3 : 1.5, t = (k === "gpu" ? 600 : 300) * 1000; s.im = itemOn() ? Math.max(s.im, m) : m; s.iu = (itemOn() ? s.iu : now) + t}
+  else if(k === "ram") gain(ps() * 1800); else if(k === "core") s.w++;
+  toast(`${DEF[k].e} ${DEF[k].n}: активировано`); const [x,y] = coreXY(); burst(x, y, 60, RAR[DEF[k].r][1], 9); save();
 }
 
-$("market").addEventListener("click",async e=>{
-  const d=e.target.dataset;
-  if(d.buy){ if(await act("/buy",{id:+d.buy})) { toast("✅ Куплено!"); hap("success","notificationOccurred"); } await loadMarket(); }
-  else if(d.use){ if(await act("/use",{item:d.use})) { applyItem(d.use); rBag(); } }
+$("market").addEventListener("click", async e => {
+  const d = e.target.dataset;
+  if(d.buy){ if(await act("/buy", {id:+d.buy})) { toast("✅ Куплено!"); hap("success","notificationOccurred"); } await loadMarket(); }
+  else if(d.use){ if(await act("/use", {item:d.use})) { applyItem(d.use); rBag(); } }
   else if(d.list){
-    const price=Math.floor(+$("p_"+d.list).value);
-    if(!(price>0)) return toast("⚠️ Укажи цену");
-    if(await act("/list",{item:d.list,price})) { toast("📈 Лот выставлен на рынок"); await loadMarket(); }
+    const price = Math.floor(+$("p_"+d.list).value);
+    if(!(price > 0)) return toast("⚠️ Укажи цену");
+    if(await act("/list", {item:d.list, price})) { toast("📈 Лот выставлен на рынок"); await loadMarket(); }
   }
 });
 
 // ---------- мини-события ----------
-let ev=null,evNext=Date.now()+25000;
-function spawnBug(){const b=document.createElement("div");b.className="bug";b.textContent="🐞";b.style.left=(10+Math.random()*75)+"vw";b.style.top=(25+Math.random()*55)+"vh";
-  b.addEventListener("pointerdown",e=>{e.stopPropagation();b.remove();if(ev?.type==="bug"){ev.n++;burst(e.clientX,e.clientY,12,"#ff6b7a",5);hap("light")}});
-  document.body.appendChild(b);setTimeout(()=>b.remove(),2200)}
+let ev = null, evNext = Date.now() + 25000;
+function spawnBug(){const b = document.createElement("div"); b.className = "bug"; b.textContent = "🐞"; b.style.left = (10 + Math.random()*75) + "vw"; b.style.top = (25 + Math.random()*55) + "vh";
+  b.addEventListener("pointerdown", e => {e.stopPropagation(); b.remove(); if(ev?.type === "bug"){ev.n++; burst(e.clientX, e.clientY, 12, "#ff6b7a", 5); hap("light")}});
+  document.body.appendChild(b); setTimeout(() => b.remove(), 2200)}
 function evStart(){
-  const heat=Math.random()<.5;
-  ev=heat?{type:"heat",goal:35,end:Date.now()+10000,n:0,tot:10000,t:"🔥 Перегрев ядра!",d:"Тапай по ядру: 35 раз за 10 секунд"}:{type:"bug",goal:10,end:Date.now()+12000,n:0,tot:12000,t:"🐞 Баги в системе!",d:"Лови жуков: 10 штук за 12 секунд"};
-  if(heat)document.body.classList.add("overheat");else ev.i=setInterval(spawnBug,650);
-  $("ev").hidden=false;$("evt").textContent=ev.t;hap("warning","notificationOccurred")}
+  const heat = Math.random() < 0.5;
+  ev = heat ? {type:"heat", goal:35, end:Date.now()+10000, n:0, tot:10000, t:"🔥 Перегрев ядра!", d:"Тапай по ядру: 35 раз за 10 секунд"} : {type:"bug", goal:10, end:Date.now()+12000, n:0, tot:12000, t:"🐞 Баги в системе!", d:"Лови жуков: 10 штук за 12 секунд"};
+  if(heat) document.body.classList.add("overheat"); else ev.i = setInterval(spawnBug, 650);
+  $("ev").hidden = false; $("evt").textContent = ev.t; hap("warning","notificationOccurred")}
 function evEnd(win){
-  clearInterval(ev.i);document.body.classList.remove("overheat");$("ev").hidden=true;
-  const k=1+0.25*s.ev;
+  clearInterval(ev.i); document.body.classList.remove("overheat"); $("ev").hidden = true;
+  const k = 1 + 0.25 * s.ev;
   if(win){hap("success","notificationOccurred");
-    if(ev.type==="heat"){s.fr=Math.max(Date.now(),s.fr)+15000*k;toast("🧊 Ядро остыло! Безумие ×7 на "+Math.round(15*k)+" сек")}
-    else{const v=Math.max(ps()*90,tapPow()*60)*k;gain(v);toast("🐞 Баги пойманы: +"+fmt(v))}
-    const [x,y]=coreXY();burst(x,y,70,"#ffc93c",9)}
+    if(ev.type === "heat"){s.fr = Math.max(Date.now(), s.fr) + 15000 * k; toast("🧊 Ядро остыло! Безумие ×7 на " + Math.round(15*k) + " сек")}
+    else{const v = Math.max(ps()*90, tapPow()*60) * k; gain(v); toast("🐞 Баги пойманы: +" + fmt(v))}
+    const [x,y] = coreXY(); burst(x, y, 70, "#ffc93c", 9)}
   else toast("Событие провалено. Следующее скоро");
-  ev=null;evNext=Date.now()+(120+Math.random()*90)*1000}
+  ev = null; evNext = Date.now() + (120 + Math.random()*90) * 1000}
 
 // ---------- UI ----------
-let shown=s.t,combo=0,comboT=0;
+let shown = s.t, combo = 0, comboT = 0;
 function ui(){
-  shown+=(s.t-shown)*0.25;if(Math.abs(s.t-shown)<0.5)shown=s.t;
-  $("bal").textContent=fmt(shown);
-  $("ps").textContent=fmt(ps()+(s.auto?3*tapPow():0));
-  $("wt").textContent=s.w;
+  shown += (s.t - shown) * 0.25; if(Math.abs(s.t - shown) < 0.5) shown = s.t;
+  $("bal").textContent = fmt(shown);
+  $("ps").textContent = fmt(ps() + (s.auto ? 3*tapPow() : 0));
+  $("wt").textContent = s.w;
   
-  // Расчет курса токенов к долларам
   const usdVal = (s.t / st.rate).toFixed(2);
   $("rateBadge").textContent = `Курс: 1$ = ${fmt(st.rate)} токенов (У вас: ~$${usdVal})`;
 
-  document.body.classList.toggle("hot",boostOn()||frOn()||itemOn());
-  const parts=[];
-  if(boostOn())parts.push(`⚡ ×${s.bm} ${Math.floor((s.bu-Date.now())/3600000)}:${String(Math.floor((s.bu-Date.now())%3600000/60000)).padStart(2,"0")}`);
-  if(frOn())parts.push(`🔥 ×7 ${Math.ceil((s.fr-Date.now())/1000)}с`);
-  if(itemOn())parts.push(`🧪 ×${s.im} ${mmss(s.iu-Date.now())}`);
-  $("boost").innerHTML=parts.map(p=>`<span class="boost">${p}</span>`).join("");
-  GENS.forEach((g,i)=>{$("c"+i).textContent="×"+s.g[i];const c=gCost(i),e=$("b"+i);e.textContent=fmt(c);e.disabled=s.t<c;$("sat"+i).classList.toggle("on",s.g[i]>0)});
-  UP.forEach(u=>{const l=s[u.k],mx=l>=u.m,c=uCost(u),b=$("ub_"+u.k);$("ul_"+u.k).textContent="ур. "+l;$("ud_"+u.k).textContent=u.d(l);b.textContent=mx?"Макс":fmt(c);b.disabled=mx||s.t<c});
-  const pg=prestigeGain();$("prestige").disabled=pg<1;
-  $("prestige").textContent=pg<1?"Перезапуск модели (нужно ещё заработать)":`Перезапуск модели: +${pg} весов (+${pg*10}% к доходу)`;
-  ["auto","offline","perm2"].forEach(k=>{const own=k==="auto"?s.auto:k==="offline"?s.off:s.perm,e=$("s_"+k);e.disabled=!!own;e.textContent=own?"Куплено":ITEMS[k].p+" ⭐"});
-  if(combo>0&&Date.now()-comboT>1000){combo=Math.max(0,combo-1);comboT=Date.now()-700}
-  $("combo").textContent=combo>=5?`КОМБО ×${combo}  (+${Math.min(combo,50)*2}%)`:"";
-  $("cbar").style.width=Math.min(combo,50)*2+"%";
+  document.body.classList.toggle("hot", boostOn() || frOn() || itemOn());
+  const parts = [];
+  if(boostOn()) parts.push(`⚡ ×${s.bm} ${Math.floor((s.bu-Date.now())/3600000)}:${String(Math.floor((s.bu-Date.now())%3600000/60000)).padStart(2,"0")}`);
+  if(frOn()) parts.push(`🔥 ×7 ${Math.ceil((s.fr-Date.now())/1000)}с`);
+  if(itemOn()) parts.push(`🧪 ×${s.im} ${mmss(s.iu-Date.now())}`);
+  $("boost").innerHTML = parts.map(p => `<span class="boost">${p}</span>`).join("");
   
-  const ch=$("chest"),left=st.next-Date.now();
-  ch.hidden=false; ch.classList.toggle("ready",left<=0);
-  ch.textContent=left<=0?"📦 Открыть ящик!":"📦 Ящик через "+mmss(left);
+  GENS.forEach((g,i)=>{$("c"+i).textContent = "×"+s.g[i]; const c = gCost(i), e = $("b"+i); e.textContent = fmt(c); e.disabled = s.t < c; $("sat"+i).classList.toggle("on", s.g[i] > 0)});
+  UP.forEach(u=>{const l = s[u.k], mx = l >= u.m, c = uCost(u), b = $("ub_"+u.k); $("ul_"+u.k).textContent = "ур. "+l; $("ud_"+u.k).textContent = u.d(l); b.textContent = mx ? "Макс" : fmt(c); b.disabled = mx || s.t < c});
+  
+  const pg = prestigeGain();
+  $("prestige").disabled = pg < 1;
+  $("prestige").textContent = pg < 1 ? "Перезапуск модели (нужно ещё заработать)" : `Перезапуск модели: +${pg} весов (+${pg*10}% к доходу)`;
+  
+  ["auto","offline","perm2"].forEach(k=>{const own = k==="auto"?s.auto:k==="offline"?s.off:s.perm, e = $("s_"+k); e.disabled = !!own; e.textContent = own ? "Куплено" : ITEMS[k].p + " ⭐"});
+  
+  if(combo > 0 && Date.now() - comboT > 1000){combo = Math.max(0, combo-1); comboT = Date.now()-700}
+  $("combo").textContent = combo >= 5 ? `КОМБО ×${combo}  (+${Math.min(combo,50)*2}%)` : "";
+  $("cbar").style.width = Math.min(combo, 50)*2 + "%";
+  
+  const ch = $("chest"), left = st.next - Date.now();
+  ch.hidden = false; ch.classList.toggle("ready", left <= 0);
+  ch.textContent = left <= 0 ? "📦 Открыть ящик!" : "📦 Ящик через " + mmss(left);
 
-  if(ev){$("evd").textContent=`${ev.d} · ${ev.n}/${ev.goal} · ${Math.ceil((ev.end-Date.now())/1000)}с`;$("evb").style.width=Math.min(100,ev.n/ev.goal*100)+"%";
-    if(ev.n>=ev.goal)evEnd(true);else if(Date.now()>ev.end)evEnd(false)}
-  else if(Date.now()>evNext)evStart();
-  while(s.ach<MILES.length&&s.tot>=MILES[s.ach]){toast(`🏆 Заработано ${fmt(MILES[s.ach])} токенов!`);hap("success","notificationOccurred");const [x,y]=coreXY();burst(x,y,50,"#ffc93c",8);s.ach++}
+  if(ev){$("evd").textContent = `${ev.d} · ${ev.n}/${ev.goal} · ${Math.ceil((ev.end-Date.now())/1000)}с`; $("evb").style.width = Math.min(100, ev.n/ev.goal*100) + "%";
+    if(ev.n >= ev.goal) evEnd(true); else if(Date.now() > ev.end) evEnd(false)}
+  else if(Date.now() > evNext) evStart();
+  
+  while(s.ach < MILES.length && s.tot >= MILES[s.ach]){toast(`🏆 Заработано ${fmt(MILES[s.ach])} токенов!`); hap("success","notificationOccurred"); const [x,y] = coreXY(); burst(x, y, 50, "#ffc93c", 8); s.ach++}
 }
 
 // ---------- офлайн-доход ----------
-{const cap=(2+s.oh+(s.off?6:0))*3600,sec=Math.min(cap,(Date.now()-s.last)/1000);
- if(sec>30){const e=ps()*sec;gain(e);if(e>0)setTimeout(()=>toast(`Пока вас не было: +${fmt(e)} токенов`),500)}}
+{const cap = (2 + s.oh + (s.off?6:0)) * 3600, sec = Math.min(cap, (Date.now()-s.last)/1000);
+ if(sec > 30){const e = ps()*sec; gain(e); if(e > 0) setTimeout(() => toast(`Пока вас не было: +${fmt(e)} токенов`), 500)}}
 
-let prev=performance.now(),saveT=0;
-setInterval(()=>{const n=performance.now(),dt=Math.min((n-prev)/1000,1);prev=n;
-  gain(ps()*dt);if(s.auto)gain(3*tapPow()*dt);
-  ui();saveT+=dt;if(saveT>2){saveT=0;save()}},100);
-document.addEventListener("visibilitychange",save);
+let prev = performance.now(), saveT = 0;
+setInterval(()=>{const n = performance.now(), dt = Math.min((n-prev)/1000, 1); prev = n;
+  gain(ps()*dt); if(s.auto) gain(3*tapPow()*dt);
+  ui(); saveT += dt; if(saveT > 2){saveT = 0; save()}}, 100);
+document.addEventListener("visibilitychange", save);
 
 // ---------- тап ----------
-const core=$("core");
-function fly(x,y,txt,crit){const f=document.createElement("div");f.className="fly"+(crit?" crit":"");f.textContent=txt;f.style.left=(x-20+(Math.random()*40-20))+"px";f.style.top=(y-30)+"px";document.body.appendChild(f);setTimeout(()=>f.remove(),900)}
-$("tap").addEventListener("pointerdown",e=>{
-  combo++;comboT=Date.now();if(ev?.type==="heat")ev.n++;
-  const crit=Math.random()<0.08+0.01*s.cr;
-  const v=tapPow()*(1+Math.min(combo,50)*0.02)*(crit?5:1);gain(v);
-  core.animate([{transform:"scale(.9)"},{transform:"scale(1)"}],{duration:140,easing:"ease-out"});
-  fly(e.clientX,e.clientY,(crit?"КРИТ ":"+")+fmt(v),crit);
-  burst(e.clientX,e.clientY,crit?26:7,crit?"#ffc93c":"#5df2c4",crit?8:4.5);
-  if(crit){core.classList.remove("shake");void core.offsetWidth;core.classList.add("shake");hap("heavy")}else hap("light")});
+const core = $("core");
+function fly(x, y, txt, crit){const f = document.createElement("div"); f.className = "fly" + (crit ? " crit" : ""); f.textContent = txt; f.style.left = (x-20+(Math.random()*40-20)) + "px"; f.style.top = (y-30) + "px"; document.body.appendChild(f); setTimeout(() => f.remove(), 900)}
+$("tap").addEventListener("pointerdown", e => {
+  combo++; comboT = Date.now(); if(ev?.type === "heat") ev.n++;
+  const crit = Math.random() < 0.08 + 0.01*s.cr;
+  const v = tapPow() * (1 + Math.min(combo,50)*0.02) * (crit ? 5 : 1); gain(v);
+  core.animate([{transform:"scale(.9)"}, {transform:"scale(1)"}], {duration:140, easing:"ease-out"});
+  fly(e.clientX, e.clientY, (crit ? "КРИТ " : "+") + fmt(v), crit);
+  burst(e.clientX, e.clientY, crit ? 26 : 7, crit ? "#ffc93c" : "#5df2c4", crit ? 8 : 4.5);
+  if(crit){core.classList.remove("shake"); void core.offsetWidth; core.classList.add("shake"); hap("heavy")}else hap("light")});
 
 // ---------- золотая звезда ----------
 function spawnGold(){
-  const el=document.createElement("div");el.className="gold";el.textContent="⭐";
-  const y=H*(0.2+Math.random()*0.35),dy=(Math.random()-0.5)*160;el.style.top=y+"px";document.body.appendChild(el);
-  const a=el.animate([{transform:"translate(-70px,0) rotate(0)"},{transform:`translate(${W*0.5}px,${dy}px) rotate(360deg) scale(1.15)`},{transform:`translate(${W+70}px,${-dy}px) rotate(720deg)`}],{duration:7000,easing:"linear"});
-  a.onfinish=()=>el.remove();
-  el.addEventListener("pointerdown",ev2=>{ev2.stopPropagation();const r=el.getBoundingClientRect();burst(r.left+29,r.top+29,45,"#ffc93c",8);el.remove();hap("success","notificationOccurred");
-    if(Math.random()<0.5){const v=Math.max(ps()*120,tapPow()*80)+50;gain(v);toast(`⭐ Золотой токен: +${fmt(v)}`)}
-    else{s.fr=Date.now()+20000;toast("🔥 Безумие! Доход ×7 на 20 секунд")}});
-  setTimeout(spawnGold,25000+Math.random()*25000)}
-setTimeout(spawnGold,10000);
+  const el = document.createElement("div"); el.className = "gold"; el.textContent = "⭐";
+  const y = H * (0.2 + Math.random()*0.35), dy = (Math.random()-0.5)*160; el.style.top = y + "px"; document.body.appendChild(el);
+  const a = el.animate([{transform:"translate(-70px,0) rotate(0)"}, {transform:`translate(${W*0.5}px,${dy}px) rotate(360deg) scale(1.15)`}, {transform:`translate(${W+70}px,${-dy}px) rotate(720deg)`}], {duration:7000, easing:"linear"});
+  a.onfinish = () => el.remove();
+  el.addEventListener("pointerdown", ev2 => {ev2.stopPropagation(); const r = el.getBoundingClientRect(); burst(r.left+29, r.top+29, 45, "#ffc93c", 8); el.remove(); hap("success","notificationOccurred");
+    if(Math.random() < 0.5){const v = Math.max(ps()*120, tapPow()*80)+50; gain(v); toast(`⭐ Золотой токен: +${fmt(v)}`)}
+    else{s.fr = Date.now()+20000; toast("🔥 Безумие! Доход ×7 на 20 секунд")}});
+  setTimeout(spawnGold, 25000 + Math.random()*25000)}
+setTimeout(spawnGold, 10000);
 
-// ---------- покупки за токены ----------
-$("gens").addEventListener("click",e=>{const i=e.target.dataset.g;if(i==null)return;const c=gCost(+i);
-  if(s.t>=c){s.t-=c;s.g[i]++;hap("selection","selectionChanged");
-    const row=$("r"+i);row.classList.remove("pop");void row.offsetWidth;row.classList.add("pop");
-    const [x,y]=coreXY();burst(x,y,18,GENS[i][3],6)}});
-$("ups").addEventListener("click",e=>{const u=UP.find(x=>x.k===e.target.dataset.u);if(!u)return;const c=uCost(u);if(s[u.k]<u.m&&s.t>=c){s.t-=c;s[u.k]++;hap("light");const [x,y]=coreXY();burst(x,y,14,"#5df2c4",5)}});
+// ---------- покупки ----------
+$("gens").addEventListener("click", e => {const i = e.target.dataset.g; if(i == null) return; const c = gCost(+i);
+  if(s.t >= c){s.t -= c; s.g[i]++; hap("selection","selectionChanged");
+    const row = $("r"+i); row.classList.remove("pop"); void row.offsetWidth; row.classList.add("pop");
+    const [x,y] = coreXY(); burst(x, y, 18, GENS[i][3], 6)}});
+$("ups").addEventListener("click", e => {const u = UP.find(x => x.k === e.target.dataset.u); if(!u) return; const c = uCost(u); if(s[u.k] < u.m && s.t >= c){s.t -= c; s[u.k]++; hap("light"); const [x,y] = coreXY(); burst(x, y, 14, "#5df2c4", 5)}});
 
 // ---------- престиж ----------
-$("prestige").onclick=()=>{const pg=prestigeGain();if(pg<1)return;
-  const go=()=>{const keep={w:s.w+pg,auto:s.auto,off:s.off,perm:s.perm,bu:s.bu,bm:s.bm,im:s.im,iu:s.iu,cr:s.cr,oh:s.oh,ev:s.ev,tot:s.tot,ach:s.ach};s=Object.assign(def(),keep);shown=0;
-    const [x,y]=coreXY();burst(x,y,90,"#b27bff",10);toast(`🧠 Новая модель: +${pg} весов`)};
-  tg?.showConfirm?tg.showConfirm(`Сбросить ферму и получить ${pg} весов?`,ok=>ok&&go()):(confirm("Сбросить ферму?")&&go())};
+$("prestige").onclick = () => {const pg = prestigeGain(); if(pg < 1) return;
+  const go = () => {const keep = {w:s.w+pg, auto:s.auto, off:s.off, perm:s.perm, bu:s.bu, bm:s.bm, im:s.im, iu:s.iu, cr:s.cr, oh:s.oh, ev:s.ev, tot:s.tot, ach:s.ach}; s = Object.assign(def(), keep); shown = 0;
+    const [x,y] = coreXY(); burst(x, y, 90, "#b27bff", 10); toast(`🧠 Новая модель: +${pg} весов`)};
+  tg?.showConfirm ? tg.showConfirm(`Сбросить ферму и получить ${pg} весов?`, ok => ok && go()) : (confirm("Сбросить ферму?") && go())};
 
 // ---------- донаты за Telegram Stars ----------
 function grant(id){
-  const it=ITEMS[id],H3=3600e3;
-  if(id==="boost2"||id==="boost5"){const m=id==="boost2"?2:5;s.bm=boostOn()?Math.max(s.bm,m):m;s.bu=(boostOn()?s.bu:Date.now())+H3}
-  else if(id==="auto")s.auto=1;else if(id==="offline")s.off=1;else if(id==="perm2")s.perm=1;
-  save(); hap("success","notificationOccurred"); toast("✨ Спасибо! "+it.n); burst(W/2,H/2,80,"#ffc93c",10);
+  const it = ITEMS[id], H3 = 3600e3;
+  if(id === "boost2" || id === "boost5"){const m = id === "boost2" ? 2 : 5; s.bm = boostOn() ? Math.max(s.bm, m) : m; s.bu = (boostOn() ? s.bu : Date.now()) + H3}
+  else if(id === "auto") s.auto = 1; else if(id === "offline") s.off = 1; else if(id === "perm2") s.perm = 1;
+  save(); hap("success","notificationOccurred"); toast("✨ Спасибо! " + it.n); burst(W/2, H/2, 80, "#ffc93c", 10);
   refresh();
 }
-$("items").addEventListener("click",async e=>{
-  const id=e.target.dataset.i;if(!id)return;
-  const r = await api("/invoice",{item:id});
-  if(!r.link) return toast("⚠️ Ошибка создания счета");
-  if(tg?.openInvoice) {
-    tg.openInvoice(r.link, x=>{ if(x==="paid") grant(id); else if(x==="failed") tg.showAlert("Оплата отменена"); });
+$("items").addEventListener("click", async e => {
+  const id = e.target.dataset.i; if(!id) return;
+  const r = await api("/invoice", {item:id});
+  if(!r || !r.link) return toast("⚠️ Ошибка создания счета");
+  if(tg?.openInvoice){
+    tg.openInvoice(r.link, x => { if(x === "paid") grant(id); else if(x === "failed") tg.showAlert("Оплата отменена"); });
   } else {
-    // Тест в браузере
     if(confirm(`ТЕСТ: Оплатить «${ITEMS[id].n}»?`)) { grant(id); }
   }
 });
