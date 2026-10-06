@@ -19,7 +19,7 @@ ITEMS = {
     "coins2":  ("3000 монет биржи 🪙", "Выгоднее на 20%", 250),
 }
 
-# База данных в памяти (для продакшна лучше заменить на SQLite / PostgreSQL)
+# База данных в памяти
 USERS = {}
 # Общий рынок (биржа) и банк лотов
 MARKET = {
@@ -38,7 +38,7 @@ DEF = {
 }
 W8 = {"cooler": 55, "ram": 28, "gpu": 14, "core": 3}
 
-# Искусственный курс: 1 доллар = X токенов (например, 1,000,000 токенов = 1$)
+# Искусственный курс: 1 доллар = X токенов
 TOKEN_TO_USD_RATE = 1_000_000 
 
 async def call(s, method, **params):
@@ -175,43 +175,46 @@ async def invoice(request):
     return web.json_response({"link": r["result"]})
 
 async def poll(app):
-    s, offset = app["s"], 0
+    s = app["s"]
+    offset = 0
     while True:
         try:
-            r = await call(s, "getUpdates", offset=offset, timeout=25,
-                           allowed_updates=["message", "pre_checkout_query"])
-            for u in r.get("result", []):
-                offset = u["update_id"] + 1
-                if "pre_checkout_query" in u:
-                    await call(s, "answerPreCheckoutQuery",
-                               pre_checkout_query_id=u["pre_checkout_query"]["id"], ok=True)
-                m = u.get("message", {})
-                if "successful_payment" in m:
-                    p = m["successful_payment"]
-                    uid = str(m["from"]["id"])
-                    payload = p["invoice_payload"]
-                    print("PAID", uid, payload)
-                    if uid not in USERS:
-                        USERS[uid] = {"coins": 0, "inv": {}, "next_box": 0, "mine": [], "usd_rate": TOKEN_TO_USD_RATE}
-                    
-                    if payload == "coins1":
-                        USERS[uid]["coins"] += 500
-                    elif payload == "coins2":
-                        USERS[uid]["coins"] += 3000
-                elif m.get("text", "").startswith("/start"):
-                    await call(s, "sendMessage", chat_id=m["chat"]["id"], text="Запускай нейроферму 👇",
-                               reply_markup={"inline_keyboard": [[{"text": "Играть",
-                                                                  "web_app": {"url": WEBAPP_URL}}]]})
+            async with s.post(f"{API}/getUpdates", json={"offset": offset, "timeout": 20, "allowed_updates": ["message", "pre_checkout_query"]}) as resp:
+                if resp.status == 200:
+                    r = await resp.json()
+                    for u in r.get("result", []):
+                        offset = u["update_id"] + 1
+                        if "pre_checkout_query" in u:
+                            await call(s, "answerPreCheckoutQuery",
+                                       pre_checkout_query_id=u["pre_checkout_query"]["id"], ok=True)
+                        m = u.get("message", {})
+                        if "successful_payment" in m:
+                            p = m["successful_payment"]
+                            uid = str(m["from"]["id"])
+                            payload = p["invoice_payload"]
+                            print("PAID", uid, payload)
+                            if uid not in USERS:
+                                USERS[uid] = {"coins": 0, "inv": {}, "next_box": 0, "mine": [], "usd_rate": TOKEN_TO_USD_RATE}
+                            
+                            if payload == "coins1":
+                                USERS[uid]["coins"] += 500
+                            elif payload == "coins2":
+                                USERS[uid]["coins"] += 3000
+                        elif m.get("text", "").startswith("/start"):
+                            await call(s, "sendMessage", chat_id=m["chat"]["id"], text="Запускай нейроферму 👇",
+                                       reply_markup={"inline_keyboard": [[{"text": "Играть",
+                                                                          "web_app": {"url": WEBAPP_URL}}]]})
         except Exception as e:
-            print("Poll error:", e)
-        await asyncio.sleep(1)
+            print("Poll reconnecting due to:", e)
+            await asyncio.sleep(3)
+        await asyncio.sleep(0.5)
 
 async def on_start(app):
     app["s"] = ClientSession()
     app["task"] = asyncio.create_task(poll(app))
 
 async def on_cleanup(app):
-    await app["s"].close()
+    app["s"].close()
 
 app = web.Application(middlewares=[cors])
 app.router.add_route("*", "/api/invoice", invoice)
