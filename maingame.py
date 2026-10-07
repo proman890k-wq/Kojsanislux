@@ -2,13 +2,16 @@ import os
 import json
 import time
 import random
+import hmac
+import hashlib
+from urllib.parse import parse_qsl
 from aiohttp import web, ClientSession
 
 # =========================
 # НАСТРОЙКИ
 # =========================
 
-TOKEN = "8307112310:AAFneoMo4ACr6SKTloHNQ9hVZIw1mf-apGQ"
+TOKEN = os.environ.get("BOT_TOKEN", "")  # задай BOT_TOKEN в переменных окружения Render
 WEBAPP_URL = "https://proman890k-wq.github.io/Kojsanislux/"
 RENDER_URL = "https://game-2gla.onrender.com"
 API = f"https://api.telegram.org/bot{TOKEN}"
@@ -87,7 +90,8 @@ def refresh_market_if_needed():
                 "price": chosen_item["price"] + random.randint(-2, 5),
                 "mine": 0
             })
-        MARKET["lots"] = new_lots
+        # лоты игроков не стираем при обновлении рынка
+        MARKET["lots"] = [l for l in MARKET["lots"] if l.get("owner")] + new_lots
 
 
 # =========================
@@ -116,7 +120,31 @@ async def cors(request, handler):
     response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
     return response
 
+def tg_user_id(data):
+    init = data.get("initData") or ""
+    if not init or not TOKEN:
+        return None
+    try:
+        pairs = dict(parse_qsl(init, keep_blank_values=True))
+        recv = pairs.pop("hash", "")
+        check = "\n".join(f"{k}={v}" for k, v in sorted(pairs.items()))
+        secret = hmac.new(b"WebAppData", TOKEN.encode(), hashlib.sha256).digest()
+        calc = hmac.new(secret, check.encode(), hashlib.sha256).hexdigest()
+        if not hmac.compare_digest(calc, recv):
+            return None
+        return json.loads(pairs["user"])["id"]
+    except Exception:
+        return None
+
 def get_user_login(data):
+    # приоритет: проверенный Telegram initData, иначе старый вход по login
+    uid = tg_user_id(data)
+    if uid is not None:
+        login = f"tg_{uid}"
+        if login not in USERS:
+            USERS[login] = new_user()
+            save_db(USERS)
+        return login
     return str(data.get("login", "")).strip()
 
 
@@ -136,18 +164,10 @@ async def handle_register(request):
         if not login or not password:
             return web.json_response({"error": "Заполните логин и пароль"}, status=400)
 
-        if login in USERS:
+        if login in USERS or login.startswith("tg_"):
             return web.json_response({"error": "Логин уже занят"}, status=400)
 
-        USERS[login] = {
-            "password": password,
-            "coins": 100,
-            "tokens": 5,
-            "inv": {"cooler": 1},
-            "next_box": 0,
-            "mine": [],
-            "game_state": {}
-        }
+        USERS[login] = new_user(password)
         save_db(USERS)
         return web.json_response({"status": "ok", "login": login})
     except Exception as e:
@@ -184,12 +204,18 @@ async def handle_webhook(request):
         data = await request.json()
         session = request.app["s"]
 
-        if "pre_checkout_query" in data:
-            pcq = data["pre_checkout_query"]
-            await call(session, "answerPreCheckoutQuery", pre_checkout_query_id=pcq["id"], ok=True)
+        message = data.get("message", {})
+        if message.get("successful_payment"):
+            await grant_purchase(session, message)
             return web.Response(text="OK")
 
-        message = data.get("message", {})
+        if "pre_checkout_query" in data:
+            pcq = data["pre_checkout_query"]
+            ok = pcq.get("invoice_payload") in ITEMS
+            extra = {} if ok else {"error_message": "Неизвестный товар"}
+            await call(session, "answerPreCheckoutQuery", pre_checkout_query_id=pcq["id"], ok=ok, **extra)
+            return web.Response(text="OK")
+
         if message.get("text", "").startswith("/start"):
             chat_id = message["chat"]["id"]
             await call(
@@ -312,7 +338,7 @@ async def handle_market(request):
 
     return web.json_response({
         "state": state_data,
-        "lots": MARKET["lots"],
+        "lots": lots_for(login),
         "ttl": time_left
     })
 
@@ -329,25 +355,22 @@ async def handle_buy_lot(request):
     lot = next((l for l in MARKET["lots"] if l["id"] == lot_id), None)
     if not lot:
         return web.json_response({"error": "Лот уже продан или обновлен"}, status=400)
-
+    if lot.get("owner") == login:
+        return web.json_response({"error": "Это ваш лот"}, status=400)
     if user["coins"] < lot["price"]:
         return web.json_response({"error": "Не хватает монет"}, status=400)
 
     user["coins"] -= lot["price"]
-    item_key = lot["item_id"]
-    user["inv"][item_key] = user["inv"].get(item_key, 0) + 1
+    seller = USERS.get(lot.get("owner"))
+    if seller:  # продавец получает цену минус комиссия 5%
+        seller["coins"] = seller.get("coins", 0) + int(lot["price"] * 0.95)
+        sync(seller)
+    user["inv"][lot["item_id"]] = user["inv"].get(lot["item_id"], 0) + 1
     MARKET["lots"].remove(lot)
-
-    if user.get("game_state"):
-        user["game_state"]["coins"] = user["coins"]
-        user["game_state"]["inv"] = user["inv"]
-
+    sync(user)
     save_db(USERS)
 
-    return web.json_response({
-        "state": user.get("game_state"),
-        "lots": MARKET["lots"]
-    })
+    return web.json_response({"state": state_of(user), "lots": lots_for(login)})
 
 
 async def handle_list_lot(request):
@@ -385,8 +408,76 @@ async def handle_list_lot(request):
 
     return web.json_response({
         "state": user.get("game_state"),
-        "lots": MARKET["lots"]
+        "lots": lots_for(login)
     })
+
+
+COINS = {"coins1": 500, "coins2": 3000}
+
+def new_user(password=""):
+    return {"password": password, "coins": 100, "tokens": 5, "inv": {"cooler": 1},
+            "next_box": 0, "mine": [], "game_state": {}, "perks": {}, "purchases": []}
+
+def sync(user):
+    gs = user.get("game_state")
+    if gs:
+        gs["coins"] = user["coins"]
+        gs["inv"] = user["inv"]
+        gs["next"] = user["next_box"]
+
+def state_of(user):
+    return user.get("game_state") or {"coins": user.get("coins", 100), "tokens": user.get("tokens", 5),
+            "inv": user.get("inv", {}), "next": user.get("next_box", 0), "mine": user.get("mine", [])}
+
+def lots_for(login):
+    return [{**l, "mine": 1 if l.get("owner") == login else 0} for l in MARKET["lots"]]
+
+async def grant_purchase(session, message):
+    sp = message["successful_payment"]
+    item = sp.get("invoice_payload")
+    uid = message.get("from", {}).get("id")
+    cid = sp.get("telegram_payment_charge_id")
+    if item not in ITEMS or uid is None:
+        return
+    login = f"tg_{uid}"
+    user = USERS.setdefault(login, new_user())
+    purchases = user.setdefault("purchases", [])
+    if any(p.get("charge") == cid for p in purchases):  # защита от повторной выдачи
+        return
+    purchases.append({"item": item, "charge": cid, "ts": time.time()})
+    if item in COINS:
+        user["coins"] = user.get("coins", 0) + COINS[item]
+        sync(user)
+    else:
+        perks = user.setdefault("perks", {})
+        perks[item] = perks.get(item, 0) + 1
+    save_db(USERS)
+    await call(session, "sendMessage", chat_id=message["chat"]["id"], text=f"🎁 Покупка получена: {ITEMS[item][0]}. Спасибо!")
+
+async def handle_invoice(request):
+    data = await request.json()
+    item = data.get("item")
+    if item not in ITEMS:
+        return web.json_response({"error": "Неизвестный товар"}, status=400)
+    name, desc, price = ITEMS[item]
+    r = await call(request.app["s"], "createInvoiceLink", title=name, description=desc, payload=item,
+                   provider_token="", currency="XTR", prices=[{"label": name, "amount": price}])
+    if not r.get("ok"):
+        return web.json_response({"error": "Не удалось создать счёт"}, status=500)
+    return web.json_response({"link": r["result"]})
+
+async def handle_use(request):
+    data = await request.json()
+    user = USERS.get(get_user_login(data))
+    item = data.get("item")
+    if not user or user["inv"].get(item, 0) <= 0:
+        return web.json_response({"error": "Нет предмета"}, status=400)
+    user["inv"][item] -= 1
+    if user["inv"][item] <= 0:
+        del user["inv"][item]
+    sync(user)
+    save_db(USERS)
+    return web.json_response({"state": state_of(user)})
 
 
 # =========================
@@ -411,6 +502,8 @@ app.router.add_route("*", "/api/drop", handle_drop)
 app.router.add_route("*", "/api/market", handle_market)
 app.router.add_route("*", "/api/buy", handle_buy_lot)
 app.router.add_route("*", "/api/list", handle_list_lot)
+app.router.add_route("*", "/api/invoice", handle_invoice)
+app.router.add_route("*", "/api/use", handle_use)
 
 app.on_startup.append(on_start)
 app.on_cleanup.append(on_cleanup)
