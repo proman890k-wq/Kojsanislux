@@ -79,6 +79,14 @@ body.overheat .core{animation:shake .2s infinite}
 h3{margin:14px 0 8px;font-size:14px;color:var(--dim)}
 [hidden]{display:none!important}
 @media (prefers-reduced-motion:reduce){*{animation-duration:.01s!important}}
+.rwin{position:relative;overflow:hidden;height:60px;border:1px solid var(--line);border-radius:12px;background:var(--panel);margin-bottom:8px}
+.rwin:after{content:"";position:absolute;left:50%;top:0;bottom:0;width:3px;margin-left:-1.5px;background:var(--star);z-index:2}
+#strip{display:flex;height:100%;will-change:transform}
+.rc{flex:0 0 56px;display:grid;place-items:center;font:800 18px Unbounded,sans-serif;font-style:normal;border-right:1px solid var(--bg)}
+.rc.r{background:#c0364a}.rc.b{background:#2a3147}.rc.g{background:#1f9d6e}
+.reels{display:flex;gap:8px;justify-content:center;margin:8px 0}
+.reels i{width:72px;height:72px;display:grid;place-items:center;font-size:44px;font-style:normal;background:var(--panel);border:1px solid var(--line);border-radius:12px}
+.acts .buy{flex:1}.big{text-align:center;font:800 22px Unbounded,sans-serif;min-height:34px;margin:6px 0}
 </style>
 </head>
 <body>
@@ -86,6 +94,9 @@ h3{margin:14px 0 8px;font-size:14px;color:var(--dim)}
 <div class="toast" id="toast"></div>
 <div class="ev" id="ev" hidden><b id="evt"></b><small id="evd"></small><div class="cbar"><i id="evb"></i></div></div>
 <div class="wrap">
+  <div class="coins"><span>⚡ <b id="wT">0</b></span><span>💵 <b id="wU">0.00</b></span></div>
+  <div class="tabs" id="nav"><button data-t="pFarm" class="on">Ферма</button><button data-t="pConv">Конвертер</button><button data-t="pFun">Веселие</button></div>
+  <div id="pFarm">
   <div class="top">
     <div class="bal" id="bal">0</div>
     <div class="sub"><span id="ps">0</span> токенов/сек · веса: <span id="wt">0</span></div>
@@ -111,11 +122,38 @@ h3{margin:14px 0 8px;font-size:14px;color:var(--dim)}
     <div class="chips" id="mchips"><button data-t="mk" class="on">Рынок</button><button data-t="bag">Рюкзак</button></div>
     <div id="mk"></div><div id="bag" hidden></div>
   </section>
+  </div>
+
+  <div id="pConv" hidden>
+    <div class="row"><div class="info"><b>Курс обмена</b><small id="cvRate"></small></div></div>
+    <h3>⚡ Токены → 💵 Доллары</h3>
+    <div class="acts"><input id="t2u" type="number" step="0.01" min="0.01" placeholder="Сколько $ получить"><button class="buy alt" data-max="t2u">Макс</button><button class="buy" data-go="t2u">Обменять</button></div>
+    <p class="sub" id="t2uI"></p>
+    <h3>💵 Доллары → ⚡ Токены</h3>
+    <div class="acts"><input id="u2t" type="number" step="0.01" min="0.01" placeholder="Сколько $ потратить"><button class="buy alt" data-max="u2t">Макс</button><button class="buy" data-go="u2t">Обменять</button></div>
+    <p class="sub" id="u2tI"></p>
+  </div>
+
+  <div id="pFun" hidden>
+    <div class="chips" id="cur"><button data-c="t" class="on">⚡ Токены</button><button data-c="u">💵 Доллары</button></div>
+    <div class="acts"><input id="bet" type="number" value="100" min="0"><button class="buy alt" data-b="half">½</button><button class="buy alt" data-b="x2">×2</button><button class="buy alt" data-b="max">Макс</button></div>
+    <p class="sub" id="gres" style="text-align:center;min-height:20px"></p>
+    <h3>🎡 Рулетка · 0 зелёное</h3>
+    <div class="rwin" id="rwin"><div id="strip"></div></div>
+    <div class="acts"><button class="buy" style="background:#c0364a;color:#fff" data-r="r">Красное ×2</button><button class="buy" style="background:#2a3147;color:#fff" data-r="b">Чёрное ×2</button><button class="buy" data-r="g">Зелёное ×14</button></div>
+    <h3>🪙 Монетка · ×2</h3>
+    <div class="big" id="coinE">?</div>
+    <div class="acts"><button class="buy" data-f="o">Орёл</button><button class="buy" data-f="p">Решка</button></div>
+    <h3>🎰 Слоты · до ×50</h3>
+    <div class="reels" id="reels"><i>🎰</i><i>🎰</i><i>🎰</i></div>
+    <div class="acts"><button class="buy star" data-sl="1">Крутить</button></div>
+    <p class="sub">🍒🍒🍒×4 · 🍋×6 · 🔔×12 · 💎×25 · 7️⃣×50 · два 🍒 ×1.5</p>
+  </div>
 </div>
 
 <script>
 const tg = window.Telegram?.WebApp; tg?.ready(); tg?.expand();
-const API = "https://your-server-domain.com/api"; // Укажи адрес своего Python сервера
+const API = "https://game-2gla.onrender.com/api";
 
 const GENS = [
   ["Старый ноутбук",15,0.1,"#8d96b2"],["Домашняя видеокарта",100,1,"#5df2c4"],["Серверная стойка",1100,8,"#4da3ff"],
@@ -146,11 +184,12 @@ const DEF = {
   cooler:{n:"Охлаждающая жижа",e:"🧊",r:"c",d:"Доход ×1.5 на 5 минут",npc:10},
   ram:{n:"Планка памяти",e:"💾",r:"u",d:"Сразу +30 минут дохода",npc:40},
   gpu:{n:"Золотая GPU",e:"🎮",r:"r",d:"Доход ×3 на 10 минут",npc:150},
+  neural_matrix:{n:"Нейроматрица ИИ",e:"🧠",r:"e",d:"+3 веса навсегда",npc:5000},
   core:{n:"Ядро сингулярности",e:"🌀",r:"e",d:"+1 вес навсегда",npc:500}
 };
 const MILES = [1e2,1e3,1e4,1e5,1e6,1e7,1e9,1e12];
 const KEY = "neurofarm2";
-const def = () => ({t:0,run:0,tot:0,g:GENS.map(()=>0),tap:0,cr:0,oh:0,ev:0,w:0,bu:0,bm:1,fr:0,im:1,iu:0,auto:0,off:0,perm:0,ach:0,last:Date.now()});
+const def = () => ({t:0,run:0,tot:0,g:GENS.map(()=>0),tap:0,cr:0,oh:0,ev:0,w:0,bu:0,bm:1,fr:0,im:1,iu:0,auto:0,off:0,perm:0,ach:0,usd:0,last:Date.now()});
 let s = Object.assign(def(), JSON.parse(localStorage.getItem(KEY)||"{}"));
 if(s.g.length < GENS.length) s.g = GENS.map((_,i) => s.g[i]||0);
 
@@ -256,7 +295,7 @@ async function loadMarket(){
 function applyItem(k){
   const now = Date.now();
   if(k === "cooler" || k === "gpu"){const m = k === "gpu" ? 3 : 1.5, t = (k === "gpu" ? 600 : 300) * 1000; s.im = itemOn() ? Math.max(s.im, m) : m; s.iu = (itemOn() ? s.iu : now) + t}
-  else if(k === "ram") gain(ps() * 1800); else if(k === "core") s.w++;
+  else if(k === "ram") gain(ps() * 1800); else if(k === "core") s.w++; else if(k === "neural_matrix") s.w += 3;
   toast(`${DEF[k].e} ${DEF[k].n}: активировано`); const [x,y] = coreXY(); burst(x, y, 60, RAR[DEF[k].r][1], 9); save();
 }
 
@@ -297,7 +336,7 @@ function ui(){
   shown += (s.t - shown) * 0.25; if(Math.abs(s.t - shown) < 0.5) shown = s.t;
   $("bal").textContent = fmt(shown);
   $("ps").textContent = fmt(ps() + (s.auto ? 3*tapPow() : 0));
-  $("wt").textContent = s.w;
+  $("wt").textContent = s.w; $("wT").textContent = fmt(s.t); $("wU").textContent = (s.usd||0).toFixed(2); $("cvRate").textContent = `1$ = ${fmt(R())} токенов`;
   
   const usdVal = (s.t / st.rate).toFixed(2);
   $("rateBadge").textContent = `Курс: 1$ = ${fmt(st.rate)} токенов (У вас: ~$${usdVal})`;
@@ -328,7 +367,7 @@ function ui(){
 
   if(ev){$("evd").textContent = `${ev.d} · ${ev.n}/${ev.goal} · ${Math.ceil((ev.end-Date.now())/1000)}с`; $("evb").style.width = Math.min(100, ev.n/ev.goal*100) + "%";
     if(ev.n >= ev.goal) evEnd(true); else if(Date.now() > ev.end) evEnd(false)}
-  else if(Date.now() > evNext) evStart();
+  else if(page==="pFarm" && Date.now() > evNext) evStart();
   
   while(s.ach < MILES.length && s.tot >= MILES[s.ach]){toast(`🏆 Заработано ${fmt(MILES[s.ach])} токенов!`); hap("success","notificationOccurred"); const [x,y] = coreXY(); burst(x, y, 50, "#ffc93c", 8); s.ach++}
 }
@@ -357,13 +396,14 @@ $("tap").addEventListener("pointerdown", e => {
 
 // ---------- золотая звезда ----------
 function spawnGold(){
+  if(page!=="pFarm"){setTimeout(spawnGold,5000); return}
   const el = document.createElement("div"); el.className = "gold"; el.textContent = "⭐";
   const y = H * (0.2 + Math.random()*0.35), dy = (Math.random()-0.5)*160; el.style.top = y + "px"; document.body.appendChild(el);
   const a = el.animate([{transform:"translate(-70px,0) rotate(0)"}, {transform:`translate(${W*0.5}px,${dy}px) rotate(360deg) scale(1.15)`}, {transform:`translate(${W+70}px,${-dy}px) rotate(720deg)`}], {duration:7000, easing:"linear"});
   a.onfinish = () => el.remove();
   el.addEventListener("pointerdown", ev2 => {ev2.stopPropagation(); const r = el.getBoundingClientRect(); burst(r.left+29, r.top+29, 45, "#ffc93c", 8); el.remove(); hap("success","notificationOccurred");
     if(Math.random() < 0.5){const v = Math.max(ps()*120, tapPow()*80)+50; gain(v); toast(`⭐ Золотой токен: +${fmt(v)}`)}
-    else{s.fr = Date.now()+20000; toast("🔥 Безумие! Доход ×7 на 20 секунд")}});
+    else{s.fr = Math.max(Date.now(), s.fr) + 20000; toast("🔥 Безумие! Доход ×7 на 20 секунд")}});
   setTimeout(spawnGold, 25000 + Math.random()*25000)}
 setTimeout(spawnGold, 10000);
 
@@ -376,7 +416,7 @@ $("ups").addEventListener("click", e => {const u = UP.find(x => x.k === e.target
 
 // ---------- престиж ----------
 $("prestige").onclick = () => {const pg = prestigeGain(); if(pg < 1) return;
-  const go = () => {const keep = {w:s.w+pg, auto:s.auto, off:s.off, perm:s.perm, bu:s.bu, bm:s.bm, im:s.im, iu:s.iu, cr:s.cr, oh:s.oh, ev:s.ev, tot:s.tot, ach:s.ach}; s = Object.assign(def(), keep); shown = 0;
+  const go = () => {const keep = {w:s.w+pg, auto:s.auto, off:s.off, perm:s.perm, bu:s.bu, bm:s.bm, im:s.im, iu:s.iu, cr:s.cr, oh:s.oh, ev:s.ev, tot:s.tot, ach:s.ach, usd:s.usd}; s = Object.assign(def(), keep); shown = 0;
     const [x,y] = coreXY(); burst(x, y, 90, "#b27bff", 10); toast(`🧠 Новая модель: +${pg} весов`)};
   tg?.showConfirm ? tg.showConfirm(`Сбросить ферму и получить ${pg} весов?`, ok => ok && go()) : (confirm("Сбросить ферму?") && go())};
 
@@ -386,7 +426,7 @@ function grant(id){
   if(id === "boost2" || id === "boost5"){const m = id === "boost2" ? 2 : 5; s.bm = boostOn() ? Math.max(s.bm, m) : m; s.bu = (boostOn() ? s.bu : Date.now()) + H3}
   else if(id === "auto") s.auto = 1; else if(id === "offline") s.off = 1; else if(id === "perm2") s.perm = 1;
   save(); hap("success","notificationOccurred"); toast("✨ Спасибо! " + it.n); burst(W/2, H/2, 80, "#ffc93c", 10);
-  refresh();
+  refresh(); setTimeout(refresh, 3000);
 }
 $("items").addEventListener("click", async e => {
   const id = e.target.dataset.i; if(!id) return;
@@ -398,6 +438,58 @@ $("items").addEventListener("click", async e => {
     if(confirm(`ТЕСТ: Оплатить «${ITEMS[id].n}»?`)) { grant(id); }
   }
 });
+
+// ---------- Конвертер ----------
+let page="pFarm";
+function evCancel(){if(ev){clearInterval(ev.i); document.body.classList.remove("overheat"); $("ev").hidden=true; ev=null}
+  document.querySelectorAll(".bug,.gold").forEach(x=>x.remove()); evNext=Date.now()+30000}
+bind("nav",["pFarm","pConv","pFun"],t=>{page=t; if(t!=="pFarm") evCancel(); else evNext=Math.max(evNext,Date.now()+15000)});
+const R=()=>st.rate||1e6, r2=n=>Math.round(n*100)/100, fl2=n=>Math.floor(n*100+1e-9)/100;
+function cvInfo(){const a=fl2(+$("t2u").value||0), b=fl2(+$("u2t").value||0);
+  $("t2uI").textContent = a>0 ? `Спишется ${fmt(a*R())} токенов` : ""; $("u2tI").textContent = b>0 ? `Получите ${fmt(b*R())} токенов` : ""}
+$("pConv").addEventListener("input",cvInfo);
+$("pConv").addEventListener("click",e=>{const d=e.target.dataset;
+  if(d.max==="t2u") $("t2u").value=fl2(s.t/R());
+  else if(d.max==="u2t") $("u2t").value=fl2(s.usd);
+  else if(d.go==="t2u"){const a=fl2(+$("t2u").value||0), c=a*R(); if(a<0.01||s.t<c) return toast("⚠️ Не хватает токенов");
+    s.t-=c; s.usd=r2(s.usd+a); toast(`💵 +$${a.toFixed(2)}`); hap("success","notificationOccurred"); save()}
+  else if(d.go==="u2t"){const b=fl2(+$("u2t").value||0); if(b<0.01||s.usd<b) return toast("⚠️ Не хватает долларов");
+    s.usd=r2(s.usd-b); s.t+=b*R(); toast(`⚡ +${fmt(b*R())} токенов`); hap("success","notificationOccurred"); save()}
+  cvInfo()});
+
+// ---------- Веселие ----------
+let cur="t", busy=false;
+const cc=n=>n===0?"g":n<8?"r":"b", wait=ms=>new Promise(r=>setTimeout(r,ms));
+const bal=()=>cur==="t"?s.t:s.usd, money=n=>cur==="t"?fmt(n):"$"+n.toFixed(2);
+const pay=d=>{if(cur==="t") s.t+=d; else s.usd=r2(s.usd+d)};
+function takeBet(){let b=+$("bet").value; b=cur==="t"?Math.floor(b):fl2(b);
+  if(!(b>0)||b>bal()){toast("⚠️ Неверная ставка или не хватает средств"); return 0} pay(-b); return b}
+function res(w,b,m){$("gres").textContent = w ? `✅ ×${m}: +${money(b*m)}` : `❌ −${money(b)}`;
+  hap(w?"success":"error","notificationOccurred"); if(w) burst(W/2,H/2,50,"#ffc93c",8); save()}
+$("strip").innerHTML=Array.from({length:15},(_,i)=>`<i class="rc ${cc(i)}">${i}</i>`).join("");
+async function roul(col){if(busy) return; const b=takeBet(); if(!b) return; busy=true;
+  const n=Math.floor(Math.random()*15), T=55, sp=$("strip");
+  sp.style.transition="none"; sp.style.transform="translateX(0)";
+  sp.innerHTML=Array.from({length:70},(_,i)=>{const x=i===T?n:Math.floor(Math.random()*15); return `<i class="rc ${cc(x)}">${x}</i>`}).join("");
+  const off=T*56+28-$("rwin").clientWidth/2+(Math.random()*30-15); void sp.offsetWidth;
+  sp.style.transition="transform 4s cubic-bezier(.1,.7,.1,1)"; sp.style.transform=`translateX(${-off}px)`;
+  await wait(4200); const w=cc(n)===col, m=col==="g"?14:2; if(w) pay(b*m); res(w,b,m); busy=false}
+async function coin(side){if(busy) return; const b=takeBet(); if(!b) return; busy=true;
+  const c=$("coinE"); c.textContent="🪙"; c.animate([{transform:"rotateY(0)"},{transform:"rotateY(1440deg)"}],{duration:1200}); await wait(1200);
+  const w=Math.random()<0.49, r=w?side:(side==="o"?"p":"o"); c.textContent=r==="o"?"Орёл":"Решка";
+  if(w) pay(b*2); res(w,b,2); busy=false}
+const SY=["🍒","🍋","🔔","💎","7️⃣"], PAY={"🍒":4,"🍋":6,"🔔":12,"💎":25,"7️⃣":50};
+async function slots(){if(busy) return; const b=takeBet(); if(!b) return; busy=true;
+  const out=[0,0,0].map(()=>SY[Math.floor(Math.random()*5)]), el=[...$("reels").children];
+  const iv=setInterval(()=>el.forEach(x=>{if(!x.dataset.k) x.textContent=SY[Math.floor(Math.random()*5)]}),70);
+  for(let i=0;i<3;i++){await wait(i?400:800); el[i].textContent=out[i]; el[i].dataset.k=1}
+  clearInterval(iv); el.forEach(x=>delete x.dataset.k);
+  let m=0; if(out[0]===out[1]&&out[1]===out[2]) m=PAY[out[0]]; else if(out.filter(x=>x==="🍒").length===2) m=1.5;
+  if(m) pay(b*m); res(m>0,b,m); busy=false}
+$("pFun").addEventListener("click",e=>{const d=e.target.dataset;
+  if(d.c){cur=d.c; [...$("cur").children].forEach(x=>x.classList.toggle("on",x===e.target)); $("bet").value=cur==="t"?100:0.5}
+  else if(d.b){let v=+$("bet").value||0; v=d.b==="half"?v/2:d.b==="x2"?v*2:bal(); $("bet").value=cur==="t"?Math.floor(v):fl2(v)}
+  else if(d.r) roul(d.r); else if(d.f) coin(d.f); else if(d.sl) slots()});
 
 refresh(); ui();
 </script>
