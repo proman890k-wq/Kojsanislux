@@ -11,7 +11,7 @@ from aiohttp import web, ClientSession
 # НАСТРОЙКИ
 # =========================
 
-TOKEN = os.environ.get("BOT_TOKEN", "")
+TOKEN = os.environ.get("8307112310:AAFneoMo4ACr6SKTloHNQ9hVZIw1mf-apGQ", "")
 WEBAPP_URL = "https://proman890k-wq.github.io/Kojsanislux/"
 RENDER_URL = "https://game-2gla.onrender.com"
 API = f"https://api.telegram.org/bot{TOKEN}"
