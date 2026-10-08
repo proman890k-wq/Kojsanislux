@@ -13,7 +13,7 @@ from aiohttp import web, ClientSession, ClientTimeout
 # НАСТРОЙКИ (секреты — через переменные окружения Render)
 # =========================
 TOKEN = os.environ.get("BOT_TOKEN", "")
-PROMO_URL = os.environ.get("PROMO_URL", "ВСТАВЬ_СЮДА_ССЫЛКУ_НА_TXT_С_GITHUB")
+PROMO_URL = os.environ.get("PROMO_URL", "https://raw.githubusercontent.com/proman890k-wq/Kojsanislux/refs/heads/main/promo.txt")
 WEBAPP_URL = "https://proman890k-wq.github.io/Kojsanislux/"
 RENDER_URL = os.environ.get("RENDER_EXTERNAL_URL", "https://game-2gla.onrender.com")
 DEV_MODE = os.environ.get("DEV_MODE") == "1"  # только для локальных тестов без Telegram
