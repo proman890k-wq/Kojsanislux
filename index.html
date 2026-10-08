@@ -195,6 +195,7 @@ h3{margin:16px 0 8px;font-size:14px;color:var(--dim);letter-spacing:.3px}
 .dstat span{flex:1;text-align:center;padding:8px;border-radius:12px;background:var(--panel);border:1px solid var(--line);color:var(--dim);font-size:12px}
 .dstat b{display:block;font:800 16px Unbounded,sans-serif;color:var(--star);margin-top:2px}
 .pgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0}.pgrid>div{background:rgba(255,255,255,.05);border-radius:12px;padding:10px 12px}.pgrid small{display:block;opacity:.65;font-size:11px}.pgrid b{font-size:16px}#promoIn{flex:1;min-width:0;text-transform:uppercase}
+.nums{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin:10px 0}.nums button{padding:10px 0;border-radius:10px;border:2px solid transparent;color:#fff;font-weight:800;font-size:15px}.nums .r{background:#c0364a}.nums .b{background:#2a3147}.nums .g{background:#1f9d6e}.nums button.sel{border-color:#ffc93c;box-shadow:0 0 10px #ffc93c88}
 </style>
 </head>
 <body>
@@ -258,7 +259,10 @@ h3{margin:16px 0 8px;font-size:14px;color:var(--dim);letter-spacing:.3px}
       <div class="wheelbox"><div class="ptr"></div><canvas id="wheel"></canvas><div class="hub" id="hub">?</div></div>
       <div class="hist" id="rhist"></div>
       <div class="acts"><button class="buy" style="background:linear-gradient(180deg,#e0485e,#c0364a);color:#fff" data-r="r">Красное ×2</button><button class="buy" style="background:linear-gradient(180deg,#3a4468,#2a3147);color:#fff" data-r="b">Чёрное ×2</button><button class="buy" data-r="g">Зелёное ×14</button></div>
-      <p class="sub center">0 — зелёное · 1–7 красные · 8–14 чёрные</p>
+      <p class="sub center">0 — зелёное · нечётные красные · чётные чёрные</p>
+      <p class="sub center">Или выбери число (выплата ×14):</p>
+      <div class="nums" id="rnums"></div>
+      <div class="acts"><button class="buy star" data-rnbet="1" id="rnBtn">Выбери число</button></div>
     </div>
 
     <div class="gp" id="g_crash" hidden>
@@ -653,7 +657,7 @@ $("pConv").addEventListener("click",e=>{const el=e.target.closest("button"); if(
 // ---------- Веселье ----------
 // ======================================================
 let cur="u", busy=false, game="roul";
-const cc=n=>n===0?"g":n<8?"r":"b", wait=ms=>new Promise(r=>setTimeout(r,ms));
+const cc=n=>n===0?"g":n%2?"r":"b", wait=ms=>new Promise(r=>setTimeout(r,ms));
 const bal=()=>cur==="t"?s.t:s.usd, money=n=>cur==="t"?fmt(n):"$"+n.toFixed(2);
 const pay=d=>{if(cur==="t") s.t+=d; else s.usd=r2(s.usd+d)};
 const payout=(b,m)=>cur==="t"?Math.floor(b*m+1e-9):fl2(b*m);
@@ -708,7 +712,9 @@ function shade(hex,k){const n=parseInt(hex.slice(1),16); const r=(n>>16&255)*k|0
 drawWheel();
 let rot=0; const rh=[];
 function addHist(n){rh.unshift(n); if(rh.length>12) rh.length=12; $("rhist").innerHTML=rh.map(v=>`<i class="hc ${cc(v)}">${v}</i>`).join("")}
-async function roul(col){if(busy) return; const b=takeBet(); if(!b) return; busy=true;
+let rnSel=-1;
+$("rnums").innerHTML=Array.from({length:WN},(_,i)=>`<button data-rn="${i}" class="${cc(i)}">${i}</button>`).join("");
+async function roul(kind,val){if(busy) return; const b=takeBet(); if(!b) return; busy=true;
   const n=Math.floor(Math.random()*WN), jitter=(Math.random()-.5)*STEP*.7;
   const target=-n*STEP+jitter, delta=(((target-rot)%360)+360)%360;
   rot+=360*6+delta;
@@ -716,7 +722,7 @@ async function roul(col){if(busy) return; const b=takeBet(); if(!b) return; busy
   $("hub").textContent="…"; $("hub").className="hub";
   await wait(5400);
   const hub=$("hub"); hub.textContent=n; hub.className="hub "+cc(n); addHist(n);
-  const win=cc(n)===col, m=col==="g"?14:2; settle(b,win?m:0); busy=false}
+  const win=kind==="n"?n===val:cc(n)===val, m=kind==="n"||val==="g"?14:2; settle(b,win?m:0); busy=false}
 
 // ---------- Монетка ----------
 let coinA=0;
@@ -841,7 +847,9 @@ $("pFun").addEventListener("click",e=>{const el=e.target.closest("button"); if(!
   if(d.c){ if(busy) return toast("⏳ Дождись конца игры"); cur=d.c; [...$("cur").children].forEach(x=>x.classList.toggle("on",x===el)); $("bet").value=cur==="t"?100:0.5; diceInfo()}
   else if(d.b){let v=+$("bet").value||0; v=d.b==="half"?v/2:d.b==="x2"?v*2:bal(); $("bet").value=cur==="t"?Math.floor(v):fl2(v); diceInfo()}
   else if(d.g){ if(busy) return toast("⏳ Дождись конца игры"); showGame(d.g)}
-  else if(d.r) roul(d.r); else if(d.f) coin(d.f); else if(d.sl) slots();
+  else if(d.r) roul("c",d.r);
+  else if(d.rn!=null){ if(busy) return; rnSel=+d.rn; [...$("rnums").children].forEach(x=>x.classList.toggle("sel",x===el)); $("rnBtn").textContent=`Поставить на ${rnSel} ×14`}
+  else if(d.rnbet){ if(rnSel<0) return toast("⚠️ Сначала выбери число"); roul("n",rnSel)} else if(d.f) coin(d.f); else if(d.sl) slots();
   else if(d.cr) crBtn();
   else if(d.mn){ if(busy) return; mnCount=+d.mn; [...$("mnChips").children].forEach(x=>x.classList.toggle("on",x===el))}
   else if(d.mt!=null) mnTile(+d.mt);
