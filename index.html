@@ -239,10 +239,10 @@ h3{margin:16px 0 8px;font-size:14px;color:var(--dim);letter-spacing:.3px}
 
   <div id="pFun" hidden>
     <div class="funbar">
-      <div class="chips" id="cur"><button data-c="t" class="on">⚡ Токены</button><button data-c="u">💵 Доллары</button></div>
+      <div class="sub">💵 Ставки только в долларах</div>
       <div class="fbal">Баланс<b id="fb">0</b></div>
     </div>
-    <div class="acts betrow"><input id="bet" type="number" value="100" min="0"><button class="buy alt" data-b="half">½</button><button class="buy alt" data-b="x2">×2</button><button class="buy alt" data-b="max">Макс</button></div>
+    <div class="acts betrow"><input id="bet" type="number" value="0.5" min="0" step="0.01"><button class="buy alt" data-b="half">½</button><button class="buy alt" data-b="x2">×2</button><button class="buy alt" data-b="max">Макс</button></div>
 
     <div class="gsel" id="games">
       <button data-g="roul" class="on"><i>🎡</i><b>Рулетка</b><small>до ×14</small></button>
@@ -300,6 +300,9 @@ h3{margin:16px 0 8px;font-size:14px;color:var(--dim);letter-spacing:.3px}
     <div id="pstats"></div>
     <h3>🎟 Промокод</h3>
     <div class="acts"><input id="promoIn" type="text" placeholder="Введи промокод" maxlength="40" autocomplete="off"><button class="buy" id="promoBtn">Активировать</button></div>
+    <h3>🏆 Лидерборд</h3>
+    <div class="chips" id="topchips"><button data-k="tok" class="on">⚡ Токены</button><button data-k="usd">💵 Доллары</button></div>
+    <div id="toplist"></div>
     <h3>🎒 Инвентарь</h3>
     <div id="bag"></div>
   </div>
@@ -349,6 +352,8 @@ const MILES = [1e2,1e3,1e4,1e5,1e6,1e7,1e9,1e12];
 const KEY = "neurofarm2";
 const def = () => ({t:0,run:0,tot:0,g:GENS.map(()=>0),tap:0,cr:0,oh:0,ev:0,w:0,bu:0,bm:1,fr:0,im:1,iu:0,auto:0,off:0,perm:0,ach:0,usd:0,autoU:0,off24:0,vip:0,taps:0,last:Date.now()});
 let s = Object.assign(def(), JSON.parse(localStorage.getItem(KEY)||"{}"));
+const loadedLast = JSON.parse(localStorage.getItem(KEY)||"{}").last || 0;
+let cloudChecked = false;
 if(s.g.length < GENS.length) s.g = GENS.map((_,i) => s.g[i]||0);
 
 const $ = id => document.getElementById(id);
@@ -420,7 +425,13 @@ async function act(p, b){
   return r;
 }
 
-const refresh = async () => { const r = await api("/me"); if(!r || r.error) return; if(r.state) st = Object.assign(st, r.state); if(r.profile) srv = r.profile; if(r.perks) applyPerks(r.perks); };
+const refresh = async () => { const r = await api("/me"); if(!r || r.error) return; if(r.state) st = Object.assign(st, r.state); if(r.profile) srv = r.profile; if(r.state && !cloudChecked){cloudChecked = true; adoptCloud(r.game)} if(r.perks) applyPerks(r.perks); };
+function adoptCloud(g){
+  if(g && g.last > loadedLast){
+    s = Object.assign(def(), g); if(s.g.length < GENS.length) s.g = GENS.map((_,i) => s.g[i]||0);
+    shown = s.t; offlineIncome(); save(); toast("☁️ Прогресс загружен с сервера");
+  } else syncStats();
+}
 
 // ---------- ящик с предметами ----------
 $("chest").onclick = async () => {
@@ -445,8 +456,22 @@ function rStats(){
   $("pSub").textContent = (u?.username ? "@" + u.username + " · " : "") + "ID " + (srv.id || u?.id || "—") + (s.vip ? " · VIP" : "");
   const rows = [["⚡ Токены", fmt(s.t)], ["💵 Доллары", "$" + (s.usd||0).toFixed(2)], ["📈 Всего заработано", fmt(s.tot)], ["🧠 Весов", s.w],
     ["👆 Тапов", fmt(s.taps||0)], ["🏗 Генераторов", s.g.reduce((a,b) => a+b, 0)], ["🏆 Достижений", s.ach + "/" + MILES.length], ["🎟 Промокодов", srv.promos || 0]];
-  $("pstats").innerHTML = '<div class="pgrid">' + rows.map(([k,v]) => `<div><small>${k}</small><b>${v}</b></div>`).join("") + '</div>';
+  $("pstats").innerHTML = '<div class="pgrid">' + rows.map(([k,v]) => `<div><small>${k}</small><b>${v}</b></div>`).join("") + '</div>'
+    + ((srv.promo_list||[]).length ? '<p class="sub">Активированные промокоды: ' + srv.promo_list.map(p => esc(p.code) + (p.usd ? ` (+$${p.usd})` : p.tokens ? ` (+${fmt(p.tokens)})` : "")).join(", ") + '</p>' : "");
 }
+const esc = x => String(x).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+let topKind = "tok";
+const syncStats = () => cloudChecked ? api("/save", {state:s}) : refresh();
+setInterval(syncStats, 15000);
+async function loadTop(){
+  await syncStats();
+  const r = await api("/top"); if(!r || r.error) return;
+  const tok = topKind === "tok", list = tok ? r.tokens : r.usd, me = tok ? r.me_tokens : r.me_usd;
+  const val = v => tok ? fmt(v) : "$" + v.toFixed(2);
+  $("toplist").innerHTML = (list.map((e,i) => `<div class="row"><div class="info"><b>${["🥇","🥈","🥉"][i] || (i+1) + "."} ${esc(e.name)}${e.me ? " (ты)" : ""}</b></div><b>${val(e.v)}</b></div>`).join("") || '<p class="sub">Пока пусто</p>')
+    + (me > list.length ? `<p class="sub">Твоё место: ${me}</p>` : "");
+}
+$("topchips").addEventListener("click", e => {const b = e.target.closest("button[data-k]"); if(!b) return; topKind = b.dataset.k; [...$("topchips").children].forEach(x => x.classList.toggle("on", x === b)); loadTop()});
 function applyPerks(p){
   if((p.boost_until||0) > s.bu){s.bu = p.boost_until; s.bm = p.boost_mult || s.bm}
   s.autoU = Math.max(s.autoU||0, p.auto_until||0);
@@ -469,7 +494,7 @@ $("promoBtn").onclick = async () => {
   const r = await act("/promo", {code}); if(!r) return;
   if(r.usd) s.usd = r2(s.usd + r.usd);
   if(r.tokens) s.t += r.tokens;
-  srv.promos = r.promos; $("promoIn").value = "";
+  srv.promos = r.promos; (srv.promo_list = srv.promo_list || []).push({code:r.code, usd:r.usd, tokens:r.tokens}); $("promoIn").value = "";
   toast("🎟 Промокод активирован: " + (r.usd ? "+$" + r.usd : "+" + fmt(r.tokens) + " токенов"));
   hap("success","notificationOccurred"); const [x,y] = coreXY(); burst(x, y, 60, "#ffc93c", 9); save(); rStats();
 };
@@ -540,14 +565,15 @@ function ui(){
 }
 
 // ---------- офлайн-доход ----------
-{const cap = offH(s.oh) * 3600, sec = Math.min(cap, (Date.now()-s.last)/1000);
+function offlineIncome(){const cap = offH(s.oh) * 3600, sec = Math.min(cap, (Date.now()-s.last)/1000);
  if(sec > 30){const e = ps()*sec; gain(e); if(e > 0) setTimeout(() => toast(`Пока вас не было: +${fmt(e)} токенов`), 500)}}
+offlineIncome();
 
 let prev = performance.now(), saveT = 0;
 setInterval(()=>{const n = performance.now(), dt = Math.min((n-prev)/1000, 1); prev = n;
   gain(ps()*dt); if(autoOn()) gain(3*tapPow()*dt);
   ui(); saveT += dt; if(saveT > 2){saveT = 0; save()}}, 100);
-document.addEventListener("visibilitychange", save);
+document.addEventListener("visibilitychange", () => {save(); if(document.hidden) syncStats()});
 
 // ---------- тап ----------
 const core = $("core");
@@ -608,7 +634,7 @@ $("items").addEventListener("click", async e => {
 let page="pFarm";
 function evCancel(){if(ev){clearInterval(ev.i); document.body.classList.remove("overheat"); $("ev").hidden=true; ev=null}
   document.querySelectorAll(".bug,.gold").forEach(x=>x.remove()); evNext=Date.now()+30000}
-bind("nav",["pFarm","pConv","pFun","pProf"],t=>{page=t; if(t==="pProf"){rBag(); rStats()} if(t!=="pFarm") evCancel(); else evNext=Math.max(evNext,Date.now()+15000);
+bind("nav",["pFarm","pConv","pFun","pProf"],t=>{page=t; if(t==="pProf"){rBag(); rStats(); loadTop()} if(t!=="pFarm") evCancel(); else evNext=Math.max(evNext,Date.now()+15000);
   if(t!=="pFun") crLeave(); else if(game==="crash"&&!cr) crDraw(0,1,"idle")});
 const R=()=>st.rate||1e6, r2=n=>Math.round(n*100)/100, fl2=n=>Math.floor(n*100+1e-9)/100;
 function cvInfo(){const a=fl2(+$("t2u").value||0), b=fl2(+$("u2t").value||0);
@@ -626,7 +652,7 @@ $("pConv").addEventListener("click",e=>{const el=e.target.closest("button"); if(
 // ======================================================
 // ---------- Веселье ----------
 // ======================================================
-let cur="t", busy=false, game="roul";
+let cur="u", busy=false, game="roul";
 const cc=n=>n===0?"g":n<8?"r":"b", wait=ms=>new Promise(r=>setTimeout(r,ms));
 const bal=()=>cur==="t"?s.t:s.usd, money=n=>cur==="t"?fmt(n):"$"+n.toFixed(2);
 const pay=d=>{if(cur==="t") s.t+=d; else s.usd=r2(s.usd+d)};
