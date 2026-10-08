@@ -301,14 +301,19 @@ h3{margin:16px 0 8px;font-size:14px;color:var(--dim);letter-spacing:.3px}
   </div>
   <div id="pProf" hidden>
     <div class="row"><div class="ic" style="--c:#b27bff">👤</div><div class="info"><b id="pName"></b><small id="pSub"></small></div></div>
+    <div class="chips" id="proftabs"><button data-t="pSecStats" class="on">Статистика</button><button data-t="pSecTop">🏆 Лидерборд</button><button data-t="pSecBag">🎒 Инвентарь</button></div>
+    <div id="pSecStats">
     <div id="pstats"></div>
     <h3>🎟 Промокод</h3>
     <div class="acts"><input id="promoIn" type="text" placeholder="Введи промокод" maxlength="40" autocomplete="off"><button class="buy" id="promoBtn">Активировать</button></div>
-    <h3>🏆 Лидерборд</h3>
+    </div>
+    <div id="pSecTop" hidden>
     <div class="chips" id="topchips"><button data-k="tok" class="on">⚡ Токены</button><button data-k="usd">💵 Доллары</button></div>
     <div id="toplist"></div>
-    <h3>🎒 Инвентарь</h3>
+    </div>
+    <div id="pSecBag" hidden>
     <div id="bag"></div>
+    </div>
   </div>
 </div>
 
@@ -405,6 +410,7 @@ $("items").innerHTML = Object.entries(ITEMS).map(([k,v])=>`<div class="row"><div
 function bind(sel, ids, cb){$(sel).addEventListener("click", e => {const btn = e.target.closest("button[data-t]"); if(!btn) return; const t = btn.dataset.t; [...e.currentTarget.children].forEach(b => b.classList.toggle("on", b === btn)); ids.forEach(i => $(i).hidden = i !== t); cb && cb(t)})}
 bind("tabs", ["farm","shop"]);
 bind("shopchips", ["ups","don"]);
+bind("proftabs", ["pSecStats","pSecTop","pSecBag"], t => {if(t === "pSecTop") loadTop(); else if(t === "pSecBag") rBag()});
 
 // ---------- Серверные запросы ----------
 let st = {inv:{}, next:0, rate:1000000}, srv = {};
@@ -638,7 +644,7 @@ $("items").addEventListener("click", async e => {
 let page="pFarm";
 function evCancel(){if(ev){clearInterval(ev.i); document.body.classList.remove("overheat"); $("ev").hidden=true; ev=null}
   document.querySelectorAll(".bug,.gold").forEach(x=>x.remove()); evNext=Date.now()+30000}
-bind("nav",["pFarm","pConv","pFun","pProf"],t=>{page=t; if(t==="pProf"){rBag(); rStats(); loadTop()} if(t!=="pFarm") evCancel(); else evNext=Math.max(evNext,Date.now()+15000);
+bind("nav",["pFarm","pConv","pFun","pProf"],t=>{page=t; if(t==="pProf"){rBag(); rStats(); if(!$("pSecTop").hidden) loadTop()} if(t!=="pFarm") evCancel(); else evNext=Math.max(evNext,Date.now()+15000);
   if(t!=="pFun") crLeave(); else if(game==="crash"&&!cr) crDraw(0,1,"idle")});
 const R=()=>st.rate||1e6, r2=n=>Math.round(n*100)/100, fl2=n=>Math.floor(n*100+1e-9)/100;
 function cvInfo(){const a=fl2(+$("t2u").value||0), b=fl2(+$("u2t").value||0);
