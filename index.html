@@ -194,6 +194,7 @@ h3{margin:16px 0 8px;font-size:14px;color:var(--dim);letter-spacing:.3px}
 .dstat{display:flex;gap:8px;margin:6px 0 12px}
 .dstat span{flex:1;text-align:center;padding:8px;border-radius:12px;background:var(--panel);border:1px solid var(--line);color:var(--dim);font-size:12px}
 .dstat b{display:block;font:800 16px Unbounded,sans-serif;color:var(--star);margin-top:2px}
+.pgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0}.pgrid>div{background:rgba(255,255,255,.05);border-radius:12px;padding:10px 12px}.pgrid small{display:block;opacity:.65;font-size:11px}.pgrid b{font-size:16px}#promoIn{flex:1;min-width:0;text-transform:uppercase}
 </style>
 </head>
 <body>
@@ -214,22 +215,17 @@ h3{margin:16px 0 8px;font-size:14px;color:var(--dim);letter-spacing:.3px}
   <div class="tapzone"><div class="core" id="core"><div class="ring r2"></div><div class="ring"></div><div id="sats"></div><button id="tap">ГЕНЕРИРОВАТЬ</button></div></div>
   <div class="combo"><b id="combo"></b><div class="cbar"><i id="cbar"></i></div></div>
 
-  <div class="tabs" id="tabs"><button data-t="farm" class="on">Ферма</button><button data-t="shop">Магазин</button><button data-t="market">Биржа</button></div>
+  <div class="tabs" id="tabs"><button data-t="farm" class="on">Ферма</button><button data-t="shop">Магазин</button></div>
 
   <section id="farm"><div id="gens"></div><button class="reset" id="prestige"></button></section>
 
   <section id="shop" hidden>
     <div class="chips" id="shopchips"><button data-t="ups" class="on">Апгрейды</button><button data-t="don">Донаты ⭐</button></div>
     <div id="ups"></div>
-    <div id="don" hidden><div id="items"></div><p class="sub">Покупка монет биржи и бустов за Telegram Stars.</p></div>
+    <div id="don" hidden><div id="items"></div><p class="sub">Бонусы за Telegram Stars. Покупка засчитывается сервером после оплаты.</p></div>
   </section>
 
-  <section id="market" hidden>
-    <div class="coins2"><span>🪙 <b id="coins">0</b></span><span class="sub">Комиссия биржи 5%</span></div>
-    <div class="chips" id="mchips"><button data-t="mk" class="on">Рынок</button><button data-t="bag">Рюкзак</button></div>
-    <div id="mk"></div><div id="bag" hidden></div>
-  </section>
-  </div>
+    </div>
 
   <div id="pConv" hidden>
     <div class="row"><div class="ic" style="--c:#4da3ff">💱</div><div class="info"><b>Курс обмена</b><small id="cvRate"></small></div></div>
@@ -299,9 +295,17 @@ h3{margin:16px 0 8px;font-size:14px;color:var(--dim);letter-spacing:.3px}
       <p class="sub center">🍒🍒🍒×4 · 🍋×6 · 🔔×12 · 💎×25 · 7️⃣×50 · два 🍒 ×1.5</p>
     </div>
   </div>
+  <div id="pProf" hidden>
+    <div class="row"><div class="ic" style="--c:#b27bff">👤</div><div class="info"><b id="pName"></b><small id="pSub"></small></div></div>
+    <div id="pstats"></div>
+    <h3>🎟 Промокод</h3>
+    <div class="acts"><input id="promoIn" type="text" placeholder="Введи промокод" maxlength="40" autocomplete="off"><button class="buy" id="promoBtn">Активировать</button></div>
+    <h3>🎒 Инвентарь</h3>
+    <div id="bag"></div>
+  </div>
 </div>
 
-<nav class="tabs" id="nav"><button data-t="pFarm" class="on"><i>🧠</i><span>Ферма</span></button><button data-t="pConv"><i>💱</i><span>Конвертер</span></button><button data-t="pFun"><i>🎡</i><span>Веселье</span></button></nav>
+<nav class="tabs" id="nav"><button data-t="pFarm" class="on"><i>🧠</i><span>Ферма</span></button><button data-t="pConv"><i>💱</i><span>Конвертер</span></button><button data-t="pFun"><i>🎡</i><span>Веселье</span></button><button data-t="pProf"><i>👤</i><span>Профиль</span></button></nav>
 
 <script>
 const tg = window.Telegram?.WebApp; tg?.ready(); tg?.expand();
@@ -317,17 +321,16 @@ const UI_IC = {tap:"👆",cr:"💥",oh:"⏳",ev:"🎁"};
 const UP = [
   {k:"tap",n:"Тонкая настройка",d:l=>`Сила тапа +${l}`,b:25,g:1.8,m:999},
   {k:"cr",n:"Шанс крита",d:l=>`Шанс ×5: ${8+l}%`,b:400,g:2.2,m:22},
-  {k:"oh",n:"Склад времени",d:l=>`Офлайн-доход: до ${2+l+(s?.off?6:0)} ч`,b:2000,g:3,m:4},
+  {k:"oh",n:"Склад времени",d:l=>`Офлайн-доход: до ${offH(l)} ч`,b:2000,g:3,m:4},
   {k:"ev",n:"Бонус событий",d:l=>`Награды событий +${l*25}%`,b:1500,g:2.5,m:10}
 ];
 const ITEMS = {
   boost2:{n:"Разгон ×2 на 1 час",d:"Весь доход ×2. Время суммируется",p:15},
   boost5:{n:"Разгон ×5 на 1 час",d:"Весь доход ×5. Время суммируется",p:50},
-  auto:{n:"Авто-тап",d:"3 тапа в секунду навсегда",p:100},
-  offline:{n:"Работа во сне",d:"Офлайн-доход +6 часов",p:75},
   perm2:{n:"Вечный ×2",d:"Постоянный множитель к доходу",p:250},
-  coins1:{n:"500 монет биржи 🪙",d:"Для покупок у других игроков",p:50,c:500},
-  coins2:{n:"3000 монет биржи 🪙",d:"Выгоднее на 20%",p:250,c:3000}
+  auto2h:{n:"Авто-тап на 2 часа",d:"3 тапа в секунду 2 часа. Время суммируется",p:350},
+  offline24:{n:"Работа во сне 24 ч",d:"Офлайн-доход копится до 24 часов",p:500},
+  vip:{n:"👑 VIP-статус",d:"Доход ×1.5, ящики вдвое чаще, больше золотых звёзд, бейдж 👑",p:1000}
 };
 const RAR = {
   c: ["обычный", "#8d96b2"],
@@ -342,25 +345,23 @@ const DEF = {
   neural_matrix:{n:"Нейроматрица ИИ",e:"🧠",r:"e",d:"+3 веса навсегда",npc:5000},
   core:{n:"Ядро сингулярности",e:"🌀",r:"e",d:"+1 вес навсегда",npc:500}
 };
-const MILES = [1e2,1e3,1e4,1e5,1e6,1e7,1e9,1e12];
 const KEY = "neurofarm2";
-const def = () => ({t:0,run:0,tot:0,g:GENS.map(()=>0),tap:0,cr:0,oh:0,ev:0,w:0,bu:0,bm:1,fr:0,im:1,iu:0,auto:0,off:0,perm:0,ach:0,usd:0,last:Date.now()});
+const def = () => ({t:0,run:0,tot:0,g:GENS.map(()=>0),tap:0,cr:0,oh:0,ev:0,w:0,bu:0,bm:1,fr:0,im:1,iu:0,auto:0,off:0,perm:0,ach:0,usd:0,autoU:0,off24:0,vip:0,taps:0,last:Date.now()});
 let s = Object.assign(def(), JSON.parse(localStorage.getItem(KEY)||"{}"));
 if(s.g.length < GENS.length) s.g = GENS.map((_,i) => s.g[i]||0);
 
 const $ = id => document.getElementById(id);
 const fmt = n => {const u=["","K","M","B","T","Qa","Qi"];let i=0;while(n>=1000&&i<u.length-1){n/=1000;i++}return (i?n.toFixed(n<10?2:n<100?1:0):Math.floor(n))+u[i]};
 const boostOn = () => s.bu > Date.now(), frOn = () => s.fr > Date.now(), itemOn = () => s.iu > Date.now();
-const mult = () => (1 + 0.1 * s.w) * (s.perm ? 2 : 1) * (boostOn() ? s.bm : 1) * (frOn() ? 7 : 1) * (itemOn() ? s.im : 1);
+const mult = () => (1 + 0.1 * s.w) * (s.perm ? 2 : 1) * (s.vip ? 1.5 : 1) * (boostOn() ? s.bm : 1) * (frOn() ? 7 : 1) * (itemOn() ? s.im : 1);
 const ps = () => GENS.reduce((a,g,i) => a + s.g[i] * g[2], 0) * mult();
 const tapPow = () => (1 + s.tap) * mult();
 const gCost = i => Math.ceil(GENS[i][1] * Math.pow(1.15, s.g[i]));
 const uCost = u => Math.ceil(u.b * Math.pow(u.g, s[u.k]));
 const gain = n => {s.t += n; s.run += n; s.tot += n};
-const prestigeGain = () => Math.floor(Math.sqrt(s.run / 1e5));
+const offH = l => s.off24 ? 24 : 2 + l + (s.off ? 6 : 0);
 const save = () => {s.last = Date.now(); localStorage.setItem(KEY, JSON.stringify(s))};
 const hap = (t, k="impactOccurred") => tg?.HapticFeedback?.[k]?.(t);
-const mmss = ms => {const r = Math.max(0, Math.ceil(ms/1000)); return Math.floor(r/60) + ":" + String(r%60).padStart(2,"0")};
 
 let toastT;
 function toast(msg){const e = $("toast"); e.textContent = msg; e.classList.add("show"); clearTimeout(toastT); toastT = setTimeout(() => e.classList.remove("show"), 2600)}
@@ -369,8 +370,6 @@ function toast(msg){const e = $("toast"); e.textContent = msg; e.classList.add("
 const cv = $("fx"), cx = cv.getContext("2d"); let P = [], W = 0, H = 0;
 function size(){const d = devicePixelRatio || 1; W = innerWidth; H = innerHeight; cv.width = W * d; cv.height = H * d; cx.setTransform(d,0,0,d,0,0)}
 addEventListener("resize", size); size();
-function burst(x, y, n, color, speed=5){for(let i=0; i<n; i++){const a = Math.random()*6.283, v = (0.4+Math.random())*speed; P.push({x, y, vx:Math.cos(a)*v, vy:Math.sin(a)*v-1, l:0, m:30+Math.random()*25, r:2+Math.random()*3, c:color, g:0.12})}}
-const coreXY = () => {const r = $("core").getBoundingClientRect(); return [r.left+r.width/2, r.top+r.height/2]};
 function frame(){
   cx.clearRect(0, 0, W, H);
   const rate = Math.min(0.5, 0.03 + Math.log10(1+ps()) * 0.05);
@@ -382,443 +381,42 @@ function frame(){
   cx.globalAlpha = 1; requestAnimationFrame(frame)}
 frame();
 
-// ---------- разметка ----------
+// ---------- рендер разметки ----------
 $("sats").innerHTML = GENS.map((g,i)=>`<div class="sat" id="sat${i}" style="--c:${g[3]};--r:${86+i*8}px;--d:${5+i*2.2}s;--a:${i*60}deg"></div>`).join("");
 $("gens").innerHTML = GENS.map((g,i)=>`<div class="row" id="r${i}"><div class="ic" style="--c:${g[3]}">${GI[i]}</div><div class="info"><b>${g[0]} <span class="cnt" id="c${i}"></span></b><small>+${fmt(g[2])}/сек каждый</small></div><button class="buy" data-g="${i}" id="b${i}"></button></div>`).join("");
 $("ups").innerHTML = UP.map(u=>`<div class="row"><div class="ic" style="--c:#ffc93c">${UI_IC[u.k]}</div><div class="info"><b>${u.n} <span class="cnt" id="ul_${u.k}"></span></b><small id="ud_${u.k}"></small></div><button class="buy" data-u="${u.k}" id="ub_${u.k}"></button></div>`).join("");
 $("items").innerHTML = Object.entries(ITEMS).map(([k,v])=>`<div class="row"><div class="info"><b>${v.n}</b><small>${v.d}</small></div><button class="buy star" data-i="${k}" id="s_${k}">${v.p} ⭐</button></div>`).join("");
 
-function bind(sel, ids, cb){$(sel).addEventListener("click", e => {const btn = e.target.closest("button[data-t]"); if(!btn) return; const t = btn.dataset.t; [...e.currentTarget.children].forEach(b => b.classList.toggle("on", b === btn)); ids.forEach(i => $(i).hidden = i !== t); cb && cb(t)})}
-bind("tabs", ["farm","shop","market"], t => {if(t === "market") loadMarket()});
-bind("shopchips", ["ups","don"]);
-bind("mchips", ["mk","bag"], () => loadMarket());
-
-// ---------- Серверные запросы ----------
-let st = {coins:0, inv:{}, next:0, mine:[], rate:1000000}, lots = [];
-const userId = tg?.initDataUnsafe?.user?.id || "test_user";
-
-async function api(p, b={}){
-  if(!API) return {error:"Нет API"};
-  try{
-    const r = await fetch(API + p, {
-      method: "POST",
-      headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({...b, user_id: userId, initData: tg?.initData || ""})
-    });
-    return await r.json();
-  }catch(e){ return {error:"Ошибка сети бэкенда"} }
+// Переключение вкладок
+function bind(sel, ids, cb){
+  const el = $(sel);
+  if(!el) return;
+  el.addEventListener("click", e => {
+    const btn = e.target.closest("button[data-t]"); 
+    if(!btn) return; 
+    const t = btn.dataset.t; 
+    [...el.children].forEach(b => b.classList.toggle("on", b === btn)); 
+    ids.forEach(i => { const block = $(i); if(block) block.hidden = i !== t; }); 
+    cb && cb(t);
+  });
 }
-
-async function act(p, b){
-  const r = await api(p, b);
-  if(!r || r.error){ toast("⚠️ " + (r?.error || "Сетевая ошибка")); return null; }
-  if(r.state) st = Object.assign(st, r.state);
-  return r;
-}
-
-const refresh = async () => { const r = await api("/me"); if(r?.state) st = Object.assign(st, r.state); };
-
-// ---------- ящик с предметами ----------
-$("chest").onclick = async () => {
-  if(Date.now() < st.next) return;
-  const r = await act("/drop", {});
-  if(!r) return;
-  const d = DEF[r.item];
-  if(!d) return;
-  toast(`📦 Выпало: ${d.e} ${d.n} (${RAR[d.r][0]})`);
-  const [x,y] = coreXY(); burst(x, y, 70, RAR[d.r][1], 9); hap("success","notificationOccurred");
-};
-
-// ---------- биржа ----------
-const card = (it, inner) => {const d = DEF[it]; return d ? `<div class="row" style="border-left:4px solid ${RAR[d.r][1]}">${inner(d)}</div>` : ''};
-function rMarket(){
-  $("coins").textContent = fmt(st.coins);
-  $("mk").innerHTML = lots.length ? lots.map(l => card(l.item, d => `<div class="em">${d.e}</div><div class="info"><b>${d.n}</b><small>${RAR[d.r][0]} · ${d.d}</small></div><button class="buy" data-buy="${l.id}" ${l.mine || st.coins < l.price ? "disabled" : ""}>${l.mine ? "Ваш лот" : fmt(l.price) + " 🪙"}</button>`)).join("") : '<p class="sub">Лотов пока нет. Выставь свой предмет из рюкзака.</p>';
-}
-function rBag(){
-  const inv = Object.entries(st.inv || {});
-  $("bag").innerHTML = (inv.length ? inv.map(([k,q]) => card(k, d => `<div class="em">${d.e}</div><div class="info"><b>${d.n} ×${q}</b><small>${RAR[d.r][0]} · ${d.d}</small></div>
-   <div class="acts"><button class="buy" data-use="${k}">Применить</button>
-   <input type="number" inputmode="numeric" min="1" id="p_${k}" value="${d.npc*2}"><button class="buy alt" data-list="${k}">Выставить</button></div>`)).join("") : '<p class="sub">Рюкзак пуст. Открывай ящики 📦.</p>')
-  + ((st.mine || []).length ? '<h3>Мои лоты</h3>' + st.mine.map(l => card(l.item, d => `<div class="em">${d.e}</div><div class="info"><b>${d.n}</b><small>Цена ${fmt(l.price)} 🪙</small></div>`)).join("") : "");
-}
-async function loadMarket(){
-  const r = await act("/market", {});
-  if(r){ lots = r.lots || []; rMarket(); rBag(); }
-}
-
-function applyItem(k){
-  const now = Date.now();
-  if(k === "cooler" || k === "gpu"){const m = k === "gpu" ? 3 : 1.5, t = (k === "gpu" ? 600 : 300) * 1000; s.im = itemOn() ? Math.max(s.im, m) : m; s.iu = (itemOn() ? s.iu : now) + t}
-  else if(k === "ram") gain(ps() * 1800); else if(k === "core") s.w++; else if(k === "neural_matrix") s.w += 3;
-  toast(`${DEF[k].e} ${DEF[k].n}: активировано`); const [x,y] = coreXY(); burst(x, y, 60, RAR[DEF[k].r][1], 9); save();
-}
-
-$("market").addEventListener("click", async e => {
-  const d = e.target.dataset;
-  if(d.buy){ if(await act("/buy", {id:+d.buy})) { toast("✅ Куплено!"); hap("success","notificationOccurred"); } await loadMarket(); }
-  else if(d.use){ if(await act("/use", {item:d.use})) { applyItem(d.use); rBag(); } }
-  else if(d.list){
-    const price = Math.floor(+$("p_"+d.list).value);
-    if(!(price > 0)) return toast("⚠️ Укажи цену");
-    if(await act("/list", {item:d.list, price})) { toast("📈 Лот выставлен на рынок"); await loadMarket(); }
-  }
+bind("tabs", ["farm", "shop"], t => { $("farm").hidden = t !== "farm"; $("shop").hidden = t !== "shop"; });
+bind("shopchips", ["ups", "don"], t => { $("ups").hidden = t !== "ups"; $("don").hidden = t !== "don"; });
+bind("nav", ["pFarm", "pConv", "pFun", "pProf"], t => {
+  ["pFarm", "pConv", "pFun", "pProf"].forEach(id => { $(id).hidden = id !== t; });
 });
 
-// ---------- мини-события ----------
-let ev = null, evNext = Date.now() + 25000;
-function spawnBug(){const b = document.createElement("div"); b.className = "bug"; b.textContent = "🐞"; b.style.left = (10 + Math.random()*75) + "vw"; b.style.top = (25 + Math.random()*55) + "vh";
-  b.addEventListener("pointerdown", e => {e.stopPropagation(); b.remove(); if(ev?.type === "bug"){ev.n++; burst(e.clientX, e.clientY, 12, "#ff6b7a", 5); hap("light")}});
-  document.body.appendChild(b); setTimeout(() => b.remove(), 2200)}
-function evStart(){
-  const heat = Math.random() < 0.5;
-  ev = heat ? {type:"heat", goal:35, end:Date.now()+10000, n:0, tot:10000, t:"🔥 Перегрев ядра!", d:"Тапай по ядру: 35 раз за 10 секунд"} : {type:"bug", goal:10, end:Date.now()+12000, n:0, tot:12000, t:"🐞 Баги в системе!", d:"Лови жуков: 10 штук за 12 секунд"};
-  if(heat) document.body.classList.add("overheat"); else ev.i = setInterval(spawnBug, 650);
-  $("ev").hidden = false; $("evt").textContent = ev.t; hap("warning","notificationOccurred")}
-function evEnd(win){
-  clearInterval(ev.i); document.body.classList.remove("overheat"); $("ev").hidden = true;
-  const k = 1 + 0.25 * s.ev;
-  if(win){hap("success","notificationOccurred");
-    if(ev.type === "heat"){s.fr = Math.max(Date.now(), s.fr) + 15000 * k; toast("🧊 Ядро остыло! Безумие ×7 на " + Math.round(15*k) + " сек")}
-    else{const v = Math.max(ps()*90, tapPow()*60) * k; gain(v); toast("🐞 Баги пойманы: +" + fmt(v))}
-    const [x,y] = coreXY(); burst(x, y, 70, "#ffc93c", 9)}
-  else toast("Событие провалено. Следующее скоро");
-  ev = null; evNext = Date.now() + (120 + Math.random()*90) * 1000}
-
-// ---------- UI ----------
-let shown = s.t, combo = 0, comboT = 0;
-function ui(){
-  shown += (s.t - shown) * 0.25; if(Math.abs(s.t - shown) < 0.5) shown = s.t;
-  $("bal").textContent = fmt(shown);
-  $("ps").textContent = fmt(ps() + (s.auto ? 3*tapPow() : 0));
-  $("wt").textContent = s.w; $("wT").textContent = fmt(s.t); $("wU").textContent = (s.usd||0).toFixed(2); $("cvRate").textContent = `1$ = ${fmt(R())} токенов`;
-  $("fb").textContent = money(bal());
-
-  const usdVal = (s.t / st.rate).toFixed(2);
-  $("rateBadge").textContent = `Курс: 1$ = ${fmt(st.rate)} токенов (У вас: ~$${usdVal})`;
-
-  document.body.classList.toggle("hot", boostOn() || frOn() || itemOn());
-  const parts = [];
-  if(boostOn()) parts.push(`⚡ ×${s.bm} ${Math.floor((s.bu-Date.now())/3600000)}:${String(Math.floor((s.bu-Date.now())%3600000/60000)).padStart(2,"0")}`);
-  if(frOn()) parts.push(`🔥 ×7 ${Math.ceil((s.fr-Date.now())/1000)}с`);
-  if(itemOn()) parts.push(`🧪 ×${s.im} ${mmss(s.iu-Date.now())}`);
-  $("boost").innerHTML = parts.map(p => `<span class="boost">${p}</span>`).join("");
-
-  GENS.forEach((g,i)=>{$("c"+i).textContent = "×"+s.g[i]; const c = gCost(i), e = $("b"+i); e.textContent = fmt(c); e.disabled = s.t < c; $("sat"+i).classList.toggle("on", s.g[i] > 0)});
-  UP.forEach(u=>{const l = s[u.k], mx = l >= u.m, c = uCost(u), b = $("ub_"+u.k); $("ul_"+u.k).textContent = "ур. "+l; $("ud_"+u.k).textContent = u.d(l); b.textContent = mx ? "Макс" : fmt(c); b.disabled = mx || s.t < c});
-
-  const pg = prestigeGain();
-  $("prestige").disabled = pg < 1;
-  $("prestige").textContent = pg < 1 ? "Перезапуск модели (нужно ещё заработать)" : `Перезапуск модели: +${pg} весов (+${pg*10}% к доходу)`;
-
-  ["auto","offline","perm2"].forEach(k=>{const own = k==="auto"?s.auto:k==="offline"?s.off:s.perm, e = $("s_"+k); e.disabled = !!own; e.textContent = own ? "Куплено" : ITEMS[k].p + " ⭐"});
-
-  if(combo > 0 && Date.now() - comboT > 1000){combo = Math.max(0, combo-1); comboT = Date.now()-700}
-  $("combo").textContent = combo >= 5 ? `КОМБО ×${combo}  (+${Math.min(combo,50)*2}%)` : "";
-  $("cbar").style.width = Math.min(combo, 50)*2 + "%";
-
-  const ch = $("chest"), left = st.next - Date.now();
-  ch.hidden = false; ch.classList.toggle("ready", left <= 0);
-  ch.textContent = left <= 0 ? "📦 Открыть ящик!" : "📦 Ящик через " + mmss(left);
-
-  if(ev){$("evd").textContent = `${ev.d} · ${ev.n}/${ev.goal} · ${Math.ceil((ev.end-Date.now())/1000)}с`; $("evb").style.width = Math.min(100, ev.n/ev.goal*100) + "%";
-    if(ev.n >= ev.goal) evEnd(true); else if(Date.now() > ev.end) evEnd(false)}
-  else if(page==="pFarm" && Date.now() > evNext) evStart();
-
-  while(s.ach < MILES.length && s.tot >= MILES[s.ach]){toast(`🏆 Заработано ${fmt(MILES[s.ach])} токенов!`); hap("success","notificationOccurred"); const [x,y] = coreXY(); burst(x, y, 50, "#ffc93c", 8); s.ach++}
-}
-
-// ---------- офлайн-доход ----------
-{const cap = (2 + s.oh + (s.off?6:0)) * 3600, sec = Math.min(cap, (Date.now()-s.last)/1000);
- if(sec > 30){const e = ps()*sec; gain(e); if(e > 0) setTimeout(() => toast(`Пока вас не было: +${fmt(e)} токенов`), 500)}}
-
-let prev = performance.now(), saveT = 0;
-setInterval(()=>{const n = performance.now(), dt = Math.min((n-prev)/1000, 1); prev = n;
-  gain(ps()*dt); if(s.auto) gain(3*tapPow()*dt);
-  ui(); saveT += dt; if(saveT > 2){saveT = 0; save()}}, 100);
-document.addEventListener("visibilitychange", save);
-
-// ---------- тап ----------
-const core = $("core");
-function fly(x, y, txt, crit){const f = document.createElement("div"); f.className = "fly" + (crit ? " crit" : ""); f.textContent = txt; f.style.left = (x-20+(Math.random()*40-20)) + "px"; f.style.top = (y-30) + "px"; document.body.appendChild(f); setTimeout(() => f.remove(), 900)}
-$("tap").addEventListener("pointerdown", e => {
-  combo++; comboT = Date.now(); if(ev?.type === "heat") ev.n++;
-  const crit = Math.random() < 0.08 + 0.01*s.cr;
-  const v = tapPow() * (1 + Math.min(combo,50)*0.02) * (crit ? 5 : 1); gain(v);
-  core.animate([{transform:"scale(.9)"}, {transform:"scale(1)"}], {duration:140, easing:"ease-out"});
-  fly(e.clientX, e.clientY, (crit ? "КРИТ " : "+") + fmt(v), crit);
-  burst(e.clientX, e.clientY, crit ? 26 : 7, crit ? "#ffc93c" : "#5df2c4", crit ? 8 : 4.5);
-  if(crit){core.classList.remove("shake"); void core.offsetWidth; core.classList.add("shake"); hap("heavy")}else hap("light")});
-
-// ---------- золотая звезда ----------
-function spawnGold(){
-  if(page!=="pFarm"){setTimeout(spawnGold,5000); return}
-  const el = document.createElement("div"); el.className = "gold"; el.textContent = "⭐";
-  const y = H * (0.2 + Math.random()*0.35), dy = (Math.random()-0.5)*160; el.style.top = y + "px"; document.body.appendChild(el);
-  const a = el.animate([{transform:"translate(-70px,0) rotate(0)"}, {transform:`translate(${W*0.5}px,${dy}px) rotate(360deg) scale(1.15)`}, {transform:`translate(${W+70}px,${-dy}px) rotate(720deg)`}], {duration:7000, easing:"linear"});
-  a.onfinish = () => el.remove();
-  el.addEventListener("pointerdown", ev2 => {ev2.stopPropagation(); const r = el.getBoundingClientRect(); burst(r.left+29, r.top+29, 45, "#ffc93c", 8); el.remove(); hap("success","notificationOccurred");
-    if(Math.random() < 0.5){const v = Math.max(ps()*120, tapPow()*80)+50; gain(v); toast(`⭐ Золотой токен: +${fmt(v)}`)}
-    else{s.fr = Math.max(Date.now(), s.fr) + 20000; toast("🔥 Безумие! Доход ×7 на 20 секунд")}});
-  setTimeout(spawnGold, 25000 + Math.random()*25000)}
-setTimeout(spawnGold, 10000);
-
-// ---------- покупки ----------
-$("gens").addEventListener("click", e => {const b = e.target.closest("button[data-g]"); if(!b) return; const i = b.dataset.g; const c = gCost(+i);
-  if(s.t >= c){s.t -= c; s.g[i]++; hap("selection","selectionChanged");
-    const row = $("r"+i); row.classList.remove("pop"); void row.offsetWidth; row.classList.add("pop");
-    const [x,y] = coreXY(); burst(x, y, 18, GENS[i][3], 6)}});
-$("ups").addEventListener("click", e => {const b = e.target.closest("button[data-u]"); if(!b) return; const u = UP.find(x => x.k === b.dataset.u); if(!u) return; const c = uCost(u); if(s[u.k] < u.m && s.t >= c){s.t -= c; s[u.k]++; hap("light"); const [x,y] = coreXY(); burst(x, y, 14, "#5df2c4", 5)}});
-
-// ---------- престиж ----------
-$("prestige").onclick = () => {const pg = prestigeGain(); if(pg < 1) return;
-  const go = () => {const keep = {w:s.w+pg, auto:s.auto, off:s.off, perm:s.perm, bu:s.bu, bm:s.bm, im:s.im, iu:s.iu, cr:s.cr, oh:s.oh, ev:s.ev, tot:s.tot, ach:s.ach, usd:s.usd}; s = Object.assign(def(), keep); shown = 0;
-    const [x,y] = coreXY(); burst(x, y, 90, "#b27bff", 10); toast(`🧠 Новая модель: +${pg} весов`)};
-  tg?.showConfirm ? tg.showConfirm(`Сбросить ферму и получить ${pg} весов?`, ok => ok && go()) : (confirm("Сбросить ферму?") && go())};
-
-// ---------- донаты за Telegram Stars ----------
-function grant(id){
-  const it = ITEMS[id], H3 = 3600e3;
-  if(id === "boost2" || id === "boost5"){const m = id === "boost2" ? 2 : 5; s.bm = boostOn() ? Math.max(s.bm, m) : m; s.bu = (boostOn() ? s.bu : Date.now()) + H3}
-  else if(id === "auto") s.auto = 1; else if(id === "offline") s.off = 1; else if(id === "perm2") s.perm = 1;
-  save(); hap("success","notificationOccurred"); toast("✨ Спасибо! " + it.n); burst(W/2, H/2, 80, "#ffc93c", 10);
-  refresh(); setTimeout(refresh, 3000);
-}
-$("items").addEventListener("click", async e => {
-  const b = e.target.closest("button[data-i]"); if(!b) return;
-  const id = b.dataset.i;
-  const r = await api("/invoice", {item:id});
-  if(!r || !r.link) return toast("⚠️ Ошибка создания счета");
-  if(tg?.openInvoice){
-    tg.openInvoice(r.link, x => { if(x === "paid") grant(id); else if(x === "failed") tg.showAlert("Оплата отменена"); });
-  } else {
-    if(confirm(`ТЕСТ: Оплатить «${ITEMS[id].n}»?`)) { grant(id); }
-  }
+// Обработка клика тапа
+$("tap").addEventListener("click", e => {
+  gain(tapPow());
+  hap("light");
 });
 
-// ---------- Конвертер ----------
-let page="pFarm";
-function evCancel(){if(ev){clearInterval(ev.i); document.body.classList.remove("overheat"); $("ev").hidden=true; ev=null}
-  document.querySelectorAll(".bug,.gold").forEach(x=>x.remove()); evNext=Date.now()+30000}
-bind("nav",["pFarm","pConv","pFun"],t=>{page=t; if(t!=="pFarm") evCancel(); else evNext=Math.max(evNext,Date.now()+15000);
-  if(t!=="pFun") crLeave(); else if(game==="crash"&&!cr) crDraw(0,1,"idle")});
-const R=()=>st.rate||1e6, r2=n=>Math.round(n*100)/100, fl2=n=>Math.floor(n*100+1e-9)/100;
-function cvInfo(){const a=fl2(+$("t2u").value||0), b=fl2(+$("u2t").value||0);
-  $("t2uI").textContent = a>0 ? `Спишется ${fmt(a*R())} токенов` : ""; $("u2tI").textContent = b>0 ? `Получите ${fmt(b*R())} токенов` : ""}
-$("pConv").addEventListener("input",cvInfo);
-$("pConv").addEventListener("click",e=>{const el=e.target.closest("button"); if(!el) return; const d=el.dataset;
-  if(d.max==="t2u") $("t2u").value=fl2(s.t/R());
-  else if(d.max==="u2t") $("u2t").value=fl2(s.usd);
-  else if(d.go==="t2u"){const a=fl2(+$("t2u").value||0), c=a*R(); if(a<0.01||s.t<c) return toast("⚠️ Не хватает токенов");
-    s.t-=c; s.usd=r2(s.usd+a); toast(`💵 +$${a.toFixed(2)}`); hap("success","notificationOccurred"); save()}
-  else if(d.go==="u2t"){const b=fl2(+$("u2t").value||0); if(b<0.01||s.usd<b) return toast("⚠️ Не хватает долларов");
-    s.usd=r2(s.usd-b); s.t+=b*R(); toast(`⚡ +${fmt(b*R())} токенов`); hap("success","notificationOccurred"); save()}
-  cvInfo()});
-
-// ======================================================
-// ---------- Веселье ----------
-// ======================================================
-let cur="t", busy=false, game="roul";
-const cc=n=>n===0?"g":n<8?"r":"b", wait=ms=>new Promise(r=>setTimeout(r,ms));
-const bal=()=>cur==="t"?s.t:s.usd, money=n=>cur==="t"?fmt(n):"$"+n.toFixed(2);
-const pay=d=>{if(cur==="t") s.t+=d; else s.usd=r2(s.usd+d)};
-const payout=(b,m)=>cur==="t"?Math.floor(b*m+1e-9):fl2(b*m);
-function takeBet(){let b=+$("bet").value; b=cur==="t"?Math.floor(b):fl2(b);
-  if(!(b>0)||b>bal()){toast("⚠️ Неверная ставка или не хватает средств"); return 0} pay(-b); return b}
-// m — множитель выплаты (0 = проигрыш)
-function settle(b,m){
-  const a=m>0?payout(b,m):0; if(a>0) pay(a);
-  const g=$("gres");
-  if(a>b){g.textContent=`✅ ×${m}: +${money(a-b)}`; g.className="gres win"; burst(W/2,H/2,50,"#ffc93c",8); hap("success","notificationOccurred")}
-  else if(a>0){g.textContent=`↩️ Возврат ${money(a)}`; g.className="gres"; hap("light")}
-  else{g.textContent=`❌ −${money(b)}`; g.className="gres lose"; hap("error","notificationOccurred")}
-  save(); return a}
-
-function showGame(g){
-  game=g; document.querySelectorAll(".gp").forEach(p=>p.hidden=p.id!=="g_"+g);
-  [...$("games").children].forEach(b=>b.classList.toggle("on",b.dataset.g===g));
-  $("gres").textContent=""; $("gres").className="gres";
-  if(g==="crash") crDraw(0,1,"idle"); if(g==="dice") diceInfo(); if(g==="mines"){mnRender(); mnUI()}}
-
-// ---------- Рулетка (круглое колесо) ----------
-const WN=15, STEP=360/WN, WCOL={g:"#1f9d6e",r:"#c0364a",b:"#232a45"};
-function drawWheel(){
-  const c=$("wheel"), S=360, d=Math.min(devicePixelRatio||1,3); c.width=c.height=S*d;
-  const x=c.getContext("2d"); x.setTransform(d,0,0,d,0,0);
-  const cx_=S/2, cy=S/2, R0=S/2-3, RI=R0-20;
-  // обод
-  let gr=x.createLinearGradient(0,0,S,S); gr.addColorStop(0,"#ffe07a"); gr.addColorStop(.5,"#a86f00"); gr.addColorStop(1,"#ffe07a");
-  x.beginPath(); x.arc(cx_,cy,R0,0,Math.PI*2); x.fillStyle=gr; x.fill();
-  x.beginPath(); x.arc(cx_,cy,R0-10,0,Math.PI*2); x.fillStyle="#1a1405"; x.fill();
-  // сектора
-  for(let i=0;i<WN;i++){
-    const a0=(i*STEP-STEP/2-90)*Math.PI/180, a1=a0+STEP*Math.PI/180;
-    x.beginPath(); x.moveTo(cx_,cy); x.arc(cx_,cy,RI,a0,a1); x.closePath();
-    const col=WCOL[cc(i)], sg=x.createRadialGradient(cx_,cy,40,cx_,cy,RI); sg.addColorStop(0,col); sg.addColorStop(1,shade(col,.55));
-    x.fillStyle=sg; x.fill(); x.strokeStyle="rgba(255,224,122,.55)"; x.lineWidth=1.5; x.stroke();
-  }
-  // числа
-  x.fillStyle="#fff"; x.textAlign="center"; x.textBaseline="middle"; x.font="800 21px Unbounded,sans-serif";
-  for(let i=0;i<WN;i++){
-    const am=(i*STEP-90)*Math.PI/180; x.save(); x.translate(cx_,cy); x.rotate(am+Math.PI/2);
-    x.shadowColor="#000"; x.shadowBlur=4; x.fillText(String(i),0,-(RI-24)); x.restore();
-  }
-  // лампочки на ободе
-  for(let i=0;i<30;i++){const a=i/30*Math.PI*2, px=cx_+Math.cos(a)*(R0-5), py=cy+Math.sin(a)*(R0-5);
-    x.beginPath(); x.arc(px,py,2.6,0,Math.PI*2); x.fillStyle=i%2?"#fff7d6":"#ffc93c"; x.shadowColor="#ffc93c"; x.shadowBlur=6; x.fill(); x.shadowBlur=0}
-  // центр
-  const hg=x.createRadialGradient(cx_-6,cy-6,4,cx_,cy,60); hg.addColorStop(0,"#ffe07a"); hg.addColorStop(1,"#6a4500");
-  x.beginPath(); x.arc(cx_,cy,60,0,Math.PI*2); x.fillStyle=hg; x.fill();
-}
-function shade(hex,k){const n=parseInt(hex.slice(1),16); const r=(n>>16&255)*k|0, g=(n>>8&255)*k|0, b=(n&255)*k|0; return `rgb(${r},${g},${b})`}
-drawWheel();
-let rot=0; const rh=[];
-function addHist(n){rh.unshift(n); if(rh.length>12) rh.length=12; $("rhist").innerHTML=rh.map(v=>`<i class="hc ${cc(v)}">${v}</i>`).join("")}
-async function roul(col){if(busy) return; const b=takeBet(); if(!b) return; busy=true;
-  const n=Math.floor(Math.random()*WN), jitter=(Math.random()-.5)*STEP*.7;
-  const target=-n*STEP+jitter, delta=(((target-rot)%360)+360)%360;
-  rot+=360*6+delta;
-  const w=$("wheel"); w.style.transition="transform 5.2s cubic-bezier(.12,.62,.08,1)"; w.style.transform=`rotate(${rot}deg)`;
-  $("hub").textContent="…"; $("hub").className="hub";
-  await wait(5400);
-  const hub=$("hub"); hub.textContent=n; hub.className="hub "+cc(n); addHist(n);
-  const win=cc(n)===col, m=col==="g"?14:2; settle(b,win?m:0); busy=false}
-
-// ---------- Монетка ----------
-let coinA=0;
-async function coin(side){if(busy) return; const b=takeBet(); if(!b) return; busy=true;
-  const w=Math.random()<0.49, r=w?side:(side==="o"?"p":"o"), targ=r==="o"?0:180;
-  const end=coinA+1800+((((targ-coinA)%360)+360)%360), c=$("coinE");
-  const a=c.animate([{transform:`rotateY(${coinA}deg) translateY(0)`},{transform:`rotateY(${coinA+(end-coinA)/2}deg) translateY(-70px)`,offset:.5},{transform:`rotateY(${end}deg) translateY(0)`}],{duration:1500,easing:"ease-in-out"});
-  await a.finished.catch(()=>{}); coinA=targ; c.style.transform=`rotateY(${targ}deg)`;
-  settle(b,w?2:0); busy=false}
-
-// ---------- Слоты ----------
-const SY=["🍒","🍋","🔔","💎","7️⃣"], PAY={"🍒":4,"🍋":6,"🔔":12,"💎":25,"7️⃣":50};
-async function slots(){if(busy) return; const b=takeBet(); if(!b) return; busy=true;
-  const out=[0,0,0].map(()=>SY[Math.floor(Math.random()*5)]), el=[...$("reels").children];
-  el.forEach(x=>x.classList.add("spin"));
-  const iv=setInterval(()=>el.forEach(x=>{if(!x.dataset.k) x.textContent=SY[Math.floor(Math.random()*5)]}),70);
-  for(let i=0;i<3;i++){await wait(i?450:900); el[i].textContent=out[i]; el[i].dataset.k=1; el[i].classList.remove("spin"); hap("light")}
-  clearInterval(iv); el.forEach(x=>delete x.dataset.k);
-  let m=0; if(out[0]===out[1]&&out[1]===out[2]) m=PAY[out[0]]; else if(out.filter(x=>x==="🍒").length===2) m=1.5;
-  const box=$("slotbox"); box.classList.remove("win"); if(m){void box.offsetWidth; box.classList.add("win")}
-  settle(b,m); busy=false}
-
-// ---------- Краш ----------
-let cr=null; const crh=[]; const CRK=0.11;
-const crashPoint=()=>Math.max(1,Math.min(200,Math.floor(97/(1-Math.random()))/100));
-function crDraw(t,m,state){
-  const c=$("crc"), d=Math.min(devicePixelRatio||1,3), w=c.clientWidth||300, h=210;
-  if(c.width!==Math.round(w*d)){c.width=Math.round(w*d); c.height=h*d}
-  const x=c.getContext("2d"); x.setTransform(d,0,0,d,0,0); x.clearRect(0,0,w,h);
-  x.strokeStyle="rgba(255,255,255,.06)"; x.lineWidth=1;
-  for(let i=1;i<5;i++){x.beginPath(); x.moveTo(0,h*i/5); x.lineTo(w,h*i/5); x.stroke(); x.beginPath(); x.moveTo(w*i/5,0); x.lineTo(w*i/5,h); x.stroke()}
-  if(state==="idle"){x.font="46px serif"; x.textAlign="center"; x.fillText("🚀",w/2,h-30); return}
-  const pad=26, T=Math.max(8,t*1.12), M=Math.max(2,m*1.18), col=state==="crash"?"#ff6b7a":state==="cash"?"#ffc93c":"#5df2c4";
-  const pt=tt=>[pad+(w-2*pad)*tt/T, h-pad-(h-2*pad)*Math.log(Math.exp(CRK*tt))/Math.log(M)];
-  x.beginPath(); x.moveTo(pad,h-pad);
-  for(let i=0;i<=60;i++){const [px,py]=pt(t*i/60); x.lineTo(px,py)}
-  const [ex,ey]=pt(t); x.lineTo(ex,h-pad); x.closePath();
-  const g=x.createLinearGradient(0,0,0,h); g.addColorStop(0,col+"55"); g.addColorStop(1,col+"00"); x.fillStyle=g; x.fill();
-  x.beginPath(); for(let i=0;i<=60;i++){const [px,py]=pt(t*i/60); i?x.lineTo(px,py):x.moveTo(px,py)}
-  x.strokeStyle=col; x.lineWidth=3.5; x.shadowColor=col; x.shadowBlur=14; x.stroke(); x.shadowBlur=0;
-  x.font="28px serif"; x.textAlign="center"; x.fillText(state==="crash"?"💥":"🚀",Math.min(ex,w-22),Math.max(ey,24));
-}
-function crHist(v){crh.unshift(v); if(crh.length>10) crh.length=10;
-  $("crHist").innerHTML=crh.map(x=>`<span class="pill ${x<2?"lo":x<10?"mid":"hi"}">×${x.toFixed(2)}</span>`).join("")}
-function crReset(){$("crBtn").textContent="Запустить 🚀"; $("crBtn").className="buy star"}
-function crashStart(){
-  if(busy) return; const b=takeBet(); if(!b) return; busy=true;
-  const au=+$("crAuto").value||0;
-  cr={b, at:crashPoint(), t0:performance.now(), auto:au>=1.01?au:0, done:false};
-  $("crM").className="crm"; $("gres").textContent=""; $("gres").className="gres"; hap("medium");
-  const loop=()=>{ if(!cr||cr.done) return;
-    const t=(performance.now()-cr.t0)/1000, m=Math.exp(CRK*t);
-    if(cr.auto && cr.auto<cr.at && m>=cr.auto) return crCash(cr.auto,t);
-    if(m>=cr.at) return crBoom(t);
-    cr.t=t; $("crM").textContent="×"+m.toFixed(2); crDraw(t,m,"run");
-    const fm=Math.floor(m*100)/100; $("crBtn").textContent=`Забрать ×${fm.toFixed(2)} · ${money(payout(cr.b,fm))}`;
-    requestAnimationFrame(loop)};
-  loop();
-}
-function crCash(m,t){
-  if(!cr||cr.done) return; cr.done=true; m=Math.max(1,Math.floor(m*100)/100);
-  const tt=t!=null?t:(performance.now()-cr.t0)/1000;
-  $("crM").textContent="×"+m.toFixed(2); $("crM").className="crm cash"; crDraw(tt,m,"cash");
-  crHist(cr.at); settle(cr.b,m); busy=false; crReset(); cr=null}
-function crBoom(){
-  const c0=cr; c0.done=true; const t=Math.log(c0.at)/CRK;
-  $("crM").textContent="×"+c0.at.toFixed(2); $("crM").className="crm crash"; crDraw(t,c0.at,"crash");
-  crHist(c0.at); settle(c0.b,0); busy=false; crReset(); cr=null}
-function crManual(){ if(!cr||cr.done) return; const t=(performance.now()-cr.t0)/1000, m=Math.exp(CRK*t); if(m>=cr.at) return; crCash(m,t)}
-function crLeave(){ if(cr&&!cr.done) crManual() }
-function crBtn(){ if(!cr||cr.done) crashStart(); else crManual() }
-
-// ---------- Мины ----------
-let mn=null, mnCount=3;
-const mnMult=(k,c)=>{let m=.97; for(let i=0;i<k;i++) m*=(25-i)/(25-c-i); return m};
-const mnFl=v=>Math.floor(v*100)/100;
-function mnRender(){
-  $("mgrid").innerHTML=Array.from({length:25},(_,i)=>{let cl="tile", t="";
-    if(mn){ if(mn.open.has(i)){cl+=" gem"+(mn.last===i?" new":""); t="💎"}
-      else if(mn.over&&mn.mines.has(i)){cl+=" mine"+(mn.hit===i?" hit":""); t="💣"}
-      else if(mn.over) cl+=" dim"}
-    return `<button class="${cl}" data-mt="${i}" ${(!mn||mn.over)?"disabled":""}>${t}</button>`}).join("")}
-function mnUI(){const btn=$("mnBtn"), info=$("mnInfo");
-  if(!mn||mn.over){btn.textContent="Начать игру"; btn.disabled=false; info.textContent="Выбери число мин и жми «Начать». Чем больше мин — тем быстрее растёт множитель."}
-  else{const k=mn.open.size, c0=mnFl(mnMult(k,mn.count)), nx=mnFl(mnMult(k+1,mn.count));
-    btn.disabled=k===0; btn.textContent=k?`Забрать ×${c0.toFixed(2)} · ${money(payout(mn.b,c0))}`:"Открой любую клетку";
-    info.textContent=`Следующий алмаз: ×${nx.toFixed(2)} · мин: ${mn.count}`}}
-function mnStart(){
-  if(busy) return; const b=takeBet(); if(!b) return; busy=true;
-  const idx=[...Array(25).keys()]; for(let i=24;i>0;i--){const j=Math.floor(Math.random()*(i+1)); [idx[i],idx[j]]=[idx[j],idx[i]]}
-  mn={b,count:mnCount,mines:new Set(idx.slice(0,mnCount)),open:new Set(),over:false,last:-1,hit:-1};
-  $("gres").textContent=""; $("gres").className="gres"; mnRender(); mnUI()}
-function mnCash(){
-  if(!mn||mn.over||!mn.open.size) return; mn.over=true; const m=mnFl(mnMult(mn.open.size,mn.count));
-  mnRender(); settle(mn.b,m); busy=false; mnUI()}
-function mnTile(i){
-  if(!mn||mn.over||mn.open.has(i)) return;
-  if(mn.mines.has(i)){mn.over=true; mn.hit=i; mnRender(); settle(mn.b,0); busy=false; mnUI(); return}
-  mn.open.add(i); mn.last=i; hap("light");
-  if(mn.open.size===25-mn.count){mnCash(); return}
-  mnRender(); mnUI()}
-function mnBtn(){ if(!busy) mnStart(); else mnCash() }
-
-// ---------- Кости ----------
-let dMode="u";
-const diceCalc=()=>{const t=+$("dSl").value, ch=dMode==="u"?t:100-t; return {t,ch,m:Math.floor(9700/ch)/100}};
-function diceInfo(){
-  const {t,ch,m}=diceCalc(), a=$("dLose"), w=$("dWin");
-  $("dCh").textContent=ch+"%"; $("dMul").textContent="×"+m.toFixed(2);
-  const bet=cur==="t"?Math.floor(+$("bet").value||0):fl2(+$("bet").value||0); $("dPay").textContent=money(payout(bet,m));
-  if(dMode==="u"){w.style.left="0";w.style.width=t+"%";a.style.left=t+"%";a.style.width=(100-t)+"%"}
-  else{a.style.left="0";a.style.width=t+"%";w.style.left=t+"%";w.style.width=(100-t)+"%"}}
-async function diceRoll(){ if(busy) return; const b=takeBet(); if(!b) return; busy=true;
-  const {t,m}=diceCalc(), roll=Math.floor(Math.random()*10000)/100, win=dMode==="u"?roll<t:roll>=t, n=$("dNum");
-  n.className="dnum"; $("dMark").style.left=roll+"%"; hap("medium");
-  const iv=setInterval(()=>n.textContent=(Math.random()*100).toFixed(2),60);
-  await wait(950); clearInterval(iv); n.textContent=roll.toFixed(2); n.className="dnum "+(win?"win":"lose");
-  settle(b,win?m:0); busy=false}
-
-// ---------- обработчики ----------
-$("pFun").addEventListener("click",e=>{const el=e.target.closest("button"); if(!el) return; const d=el.dataset;
-  if(d.c){ if(busy) return toast("⏳ Дождись конца игры"); cur=d.c; [...$("cur").children].forEach(x=>x.classList.toggle("on",x===el)); $("bet").value=cur==="t"?100:0.5; diceInfo()}
-  else if(d.b){let v=+$("bet").value||0; v=d.b==="half"?v/2:d.b==="x2"?v*2:bal(); $("bet").value=cur==="t"?Math.floor(v):fl2(v); diceInfo()}
-  else if(d.g){ if(busy) return toast("⏳ Дождись конца игры"); showGame(d.g)}
-  else if(d.r) roul(d.r); else if(d.f) coin(d.f); else if(d.sl) slots();
-  else if(d.cr) crBtn();
-  else if(d.mn){ if(busy) return; mnCount=+d.mn; [...$("mnChips").children].forEach(x=>x.classList.toggle("on",x===el))}
-  else if(d.mt!=null) mnTile(+d.mt);
-  else if(d.mbtn) mnBtn();
-  else if(d.dm){ if(busy) return; dMode=d.dm; [...$("dModes").children].forEach(x=>x.classList.toggle("on",x===el)); diceInfo()}
-  else if(d.dgo) diceRoll()});
-$("pFun").addEventListener("input",e=>{ if(e.target.id==="dSl"||e.target.id==="bet") diceInfo()});
-addEventListener("resize",()=>{ if(page==="pFun"&&game==="crash"&&!cr) crDraw(0,1,"idle")});
-
-mnRender(); mnUI(); diceInfo();
-refresh(); ui();
+setInterval(() => {
+  $("wT").textContent = fmt(s.t);
+  $("bal").textContent = fmt(s.t);
+  save();
+}, 1000);
 </script>
 </body>
 </html>
