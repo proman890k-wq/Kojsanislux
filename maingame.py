@@ -1,5 +1,6 @@
 import os
 import re
+import math
 import json
 import time
 import random
@@ -9,13 +10,19 @@ import asyncio
 from urllib.parse import parse_qsl
 from aiohttp import web, ClientSession, ClientTimeout
 
+try:
+    import asyncpg
+except ImportError:
+    asyncpg = None
+
 # =========================
 # НАСТРОЙКИ (секреты — через переменные окружения Render)
 # =========================
-TOKEN = os.environ.get("BOT_TOKEN", "8307112310:AAFneoMo4ACr6SKTloHNQ9hVZIw1mf-apGQ")
-PROMO_URL = os.environ.get("PROMO_URL", "https://raw.githubusercontent.com/proman890k-wq/Kojsanislux/refs/heads/main/promo.txt")
+TOKEN = os.environ.get("BOT_TOKEN", "")
+PROMO_URL = os.environ.get("PROMO_URL", "ВСТАВЬ_СЮДА_ССЫЛКУ_НА_TXT_С_GITHUB")
 WEBAPP_URL = "https://proman890k-wq.github.io/Kojsanislux/"
 RENDER_URL = os.environ.get("RENDER_EXTERNAL_URL", "https://game-2gla.onrender.com")
+DATABASE_URL = os.environ.get("DATABASE_URL", "")  # Postgres: Neon / Supabase / Render
 DEV_MODE = os.environ.get("DEV_MODE") == "1"  # только для локальных тестов без Telegram
 API = f"https://api.telegram.org/bot{TOKEN}"
 DB_FILE = "database.json"
@@ -29,7 +36,41 @@ if not TOKEN:
 # =========================
 # БАЗА ДАННЫХ
 # =========================
-def load_db():
+USERS = {}
+_dirty = set()
+_pool = None
+
+def touch(login):
+    """Пометить пользователя изменённым — фоновая задача запишет его в БД."""
+    _dirty.add(login)
+
+async def flush():
+    global _dirty
+    if not _dirty:
+        return
+    batch, _dirty = _dirty, set()
+    try:
+        if _pool:
+            rows = [(l, json.dumps(USERS[l], ensure_ascii=False)) for l in batch if l in USERS]
+            async with _pool.acquire() as c:
+                await c.executemany(
+                    "INSERT INTO users (login, data) VALUES ($1, $2::jsonb) "
+                    "ON CONFLICT (login) DO UPDATE SET data = EXCLUDED.data", rows)
+        else:
+            tmp = DB_FILE + ".tmp"
+            with open(tmp, "w", encoding="utf-8") as f:
+                json.dump(USERS, f, ensure_ascii=False, indent=2)
+            os.replace(tmp, DB_FILE)
+    except Exception as e:
+        print("DB WRITE ERROR:", repr(e))
+        _dirty |= batch
+
+async def writer():
+    while True:
+        await asyncio.sleep(1)
+        await flush()
+
+def read_file_db():
     if os.path.exists(DB_FILE):
         try:
             with open(DB_FILE, "r", encoding="utf-8") as f:
@@ -38,17 +79,31 @@ def load_db():
             pass
     return {}
 
-def save_db(data):
-    tmp = DB_FILE + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
-    os.replace(tmp, DB_FILE)
-
-USERS = load_db()
+async def db_init():
+    global _pool
+    if DATABASE_URL:
+        if asyncpg is None:
+            raise RuntimeError("Добавь asyncpg в requirements.txt")
+        _pool = await asyncpg.create_pool(DATABASE_URL, min_size=1, max_size=3,
+                                          statement_cache_size=0)
+        async with _pool.acquire() as c:
+            await c.execute("CREATE TABLE IF NOT EXISTS users "
+                            "(login TEXT PRIMARY KEY, data JSONB NOT NULL)")
+            rows = await c.fetch("SELECT login, data FROM users")
+        for r in rows:
+            USERS[r["login"]] = json.loads(r["data"])
+        if not rows:  # разовый перенос из старого database.json
+            USERS.update(read_file_db())
+            _dirty.update(USERS)
+        print(f"DB: Postgres, пользователей: {len(USERS)}")
+    else:
+        USERS.update(read_file_db())
+        print("WARNING: DATABASE_URL не задан — данные в файле и пропадут при перезапуске на Render")
 
 def new_user():
     return {"inv": {"cooler": 1}, "next_box": 0, "perks": {}, "purchases": [],
-            "promos": [], "created": time.time()}
+            "promos": [], "created": time.time(),
+            "stats": {"tot": 0, "usd": 0}, "name": ""}
 
 def norm(user):
     for k, v in new_user().items():
@@ -111,6 +166,7 @@ async def read_json(request):
 def get_login(data):
     """Логин = Telegram ID, проверенный по подписи initData."""
     uid = None
+    name = None
     init = data.get("initData") or ""
     if init and TOKEN:
         try:
@@ -121,7 +177,9 @@ def get_login(data):
             calc = hmac.new(secret, check.encode(), hashlib.sha256).hexdigest()
             fresh = time.time() - int(pairs.get("auth_date", 0)) < 7 * 86400
             if hmac.compare_digest(calc, recv) and fresh:
-                uid = json.loads(pairs.get("user", "{}")).get("id")
+                ud = json.loads(pairs.get("user", "{}"))
+                uid = ud.get("id")
+                name = ("@" + ud["username"]) if ud.get("username") else ud.get("first_name")
         except Exception:
             pass
     if uid is None and DEV_MODE and data.get("user_id") is not None:
@@ -131,9 +189,16 @@ def get_login(data):
     login = f"tg_{uid}"
     if login not in USERS:
         USERS[login] = new_user()
-        save_db(USERS)
+        touch(login)
     norm(USERS[login])
+    if name and USERS[login].get("name") != name:
+        USERS[login]["name"] = name
+        touch(login)
     return login
+
+def promo_list(user):
+    """Все промокоды пользователя: код, время, награда (старые записи — только код)."""
+    return [p if isinstance(p, dict) else {"code": p} for p in user["promos"]]
 
 def is_vip(user):
     return bool(user["perks"].get("vip"))
@@ -157,9 +222,11 @@ async def handle_me(request):
     user = USERS[login]
     return web.json_response({
         "state": state_of(user),
+        "game": user.get("game"),
         "perks": user["perks"],
         "profile": {"id": login[3:], "created": user["created"],
-                    "promos": len(user["promos"]), "vip": is_vip(user)},
+                    "promos": len(user["promos"]), "promo_list": promo_list(user),
+                    "vip": is_vip(user)},
     })
 
 async def handle_drop(request):
@@ -178,7 +245,7 @@ async def handle_drop(request):
             break
     user["inv"][chosen] = user["inv"].get(chosen, 0) + 1
     user["next_box"] = now + (VIP_BOX_COOLDOWN_MS if is_vip(user) else BOX_COOLDOWN_MS)
-    save_db(USERS)
+    touch(login)
     return web.json_response({"item": chosen, "state": state_of(user)})
 
 async def handle_use(request):
@@ -193,7 +260,7 @@ async def handle_use(request):
     user["inv"][item] -= 1
     if user["inv"][item] <= 0:
         del user["inv"][item]
-    save_db(USERS)
+    touch(login)
     return web.json_response({"state": state_of(user)})
 
 # =========================
@@ -261,11 +328,55 @@ async def handle_promo(request):
     reward = promos.get(code)
     if not code or not reward:
         return web.json_response({"error": "Неверный промокод"}, status=400)
-    if code in user["promos"]:  # проверка и отметка идут без await — двойное использование невозможно
+    if any(p["code"] == code for p in promo_list(user)):  # проверка и отметка идут без await — двойное использование невозможно
         return web.json_response({"error": "Ты уже использовал этот промокод"}, status=400)
-    user["promos"].append(code)
-    save_db(USERS)
-    return web.json_response({**reward, "promos": len(user["promos"])})
+    user["promos"].append({"code": code, "ts": time.time(), **reward})
+    touch(login)
+    return web.json_response({**reward, "code": code, "promos": len(user["promos"])})
+
+# =========================
+# СТАТИСТИКА И ЛИДЕРБОРД
+# (прогресс хранится на устройстве, поэтому значения приходят от клиента)
+# =========================
+async def handle_save(request):
+    """Облачное сохранение: весь прогресс игрока лежит на сервере."""
+    data = await read_json(request)
+    login = get_login(data)
+    if not login:
+        return web.json_response({"error": "Unauthorized"}, status=401)
+    g = data.get("state")
+    if not isinstance(g, dict) or len(json.dumps(g)) > 50_000:
+        return web.json_response({"error": "Bad data"}, status=400)
+    try:
+        tot, usd, last = float(g.get("tot", 0)), float(g.get("usd", 0)), float(g.get("last", 0))
+    except (TypeError, ValueError):
+        return web.json_response({"error": "Bad data"}, status=400)
+    if not all(math.isfinite(x) for x in (tot, usd, last)) or tot < 0 or usd < 0:
+        return web.json_response({"error": "Bad data"}, status=400)
+    user = USERS[login]
+    if last < float((user.get("game") or {}).get("last", 0)):
+        return web.json_response({"status": "stale"})  # более старая копия не затирает новую
+    user["game"] = g
+    user["stats"] = {"tot": max(user["stats"].get("tot", 0), tot), "usd": round(usd, 2)}
+    touch(login)
+    return web.json_response({"status": "ok"})
+
+def board(key, login, n=20):
+    rows = [(l, u) for l, u in USERS.items()
+            if isinstance(u.get("stats"), dict) and u["stats"].get(key, 0) > 0]
+    rows.sort(key=lambda r: r[1]["stats"][key], reverse=True)
+    top = [{"name": u.get("name") or "Игрок", "v": u["stats"][key], "me": l == login}
+           for l, u in rows[:n]]
+    rank = next((i + 1 for i, (l, _) in enumerate(rows) if l == login), 0)
+    return top, rank
+
+async def handle_top(request):
+    login = get_login(await read_json(request))
+    if not login:
+        return web.json_response({"error": "Unauthorized"}, status=401)
+    tokens, rt = board("tot", login)
+    usd, ru = board("usd", login)
+    return web.json_response({"tokens": tokens, "usd": usd, "me_tokens": rt, "me_usd": ru})
 
 # =========================
 # ДОНАТЫ (Telegram Stars)
@@ -302,12 +413,14 @@ async def grant_purchase(session, message):
     charge = sp.get("telegram_payment_charge_id")
     if item not in ITEMS or uid is None:
         return
-    user = norm(USERS.setdefault(f"tg_{uid}", new_user()))
+    login = f"tg_{uid}"
+    user = norm(USERS.setdefault(login, new_user()))
     if any(p.get("charge") == charge for p in user["purchases"]):
         return
     user["purchases"].append({"item": item, "charge": charge, "ts": time.time()})
     apply_perk(user["perks"], item)
-    save_db(USERS)
+    touch(login)
+    await flush()  # платёж фиксируем в БД сразу
     await call(session, "sendMessage", chat_id=message["chat"]["id"],
                text=f"🎁 Покупка получена: {ITEMS[item][0]}. Спасибо!")
 
@@ -348,6 +461,8 @@ async def keep_alive(app):
             await asyncio.sleep(240)
 
 async def on_start(app):
+    await db_init()
+    app["writer_task"] = asyncio.create_task(writer())
     app["s"] = ClientSession()
     if TOKEN:
         await call(app["s"], "setWebhook", url=f"{RENDER_URL}/webhook",
@@ -355,6 +470,11 @@ async def on_start(app):
     app["keep_alive_task"] = asyncio.create_task(keep_alive(app))
 
 async def on_cleanup(app):
+    if "writer_task" in app:
+        app["writer_task"].cancel()
+    await flush()
+    if _pool:
+        await _pool.close()
     if "keep_alive_task" in app:
         app["keep_alive_task"].cancel()
     if "s" in app:
@@ -365,7 +485,7 @@ app.router.add_get("/", handle_index)
 app.router.add_get("/health", handle_health)
 app.router.add_post("/webhook", handle_webhook)
 for path, h in [("/api/me", handle_me), ("/api/drop", handle_drop), ("/api/use", handle_use),
-                ("/api/promo", handle_promo), ("/api/invoice", handle_invoice)]:
+                ("/api/promo", handle_promo), ("/api/save", handle_save), ("/api/top", handle_top), ("/api/invoice", handle_invoice)]:
     app.router.add_route("*", path, h)
 app.on_startup.append(on_start)
 app.on_cleanup.append(on_cleanup)
