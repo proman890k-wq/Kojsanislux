@@ -16,6 +16,7 @@ TOP_PLAYER = 100000000
 DONOR_BONUS = 50 $
 VIP_DOLLARS = 100 usd
 RICH_START = 25.5 долларов
+CTOS_PARTNER = 5000 $
 
 # 4. Секретные пасхалки и праздничные коды
 EASTER_EGG = 777_777 tokens
