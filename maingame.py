@@ -18,11 +18,11 @@ except ImportError:
 # =========================
 # НАСТРОЙКИ (секреты — через переменные окружения Render)
 # =========================
-TOKEN = os.environ.get("BOT_TOKEN", "")
-PROMO_URL = os.environ.get("PROMO_URL", "ВСТАВЬ_СЮДА_ССЫЛКУ_НА_TXT_С_GITHUB")
+TOKEN = os.environ.get("BOT_TOKEN", "8307112310:AAFneoMo4ACr6SKTloHNQ9hVZIw1mf-apGQ")
+PROMO_URL = os.environ.get("PROMO_URL", "https://raw.githubusercontent.com/proman890k-wq/Kojsanislux/refs/heads/main/promo.txt")
 WEBAPP_URL = "https://proman890k-wq.github.io/Kojsanislux/"
 RENDER_URL = os.environ.get("RENDER_EXTERNAL_URL", "https://game-2gla.onrender.com")
-DATABASE_URL = os.environ.get("DATABASE_URL", "")  # Postgres: Neon / Supabase / Render
+DATABASE_URL = os.environ.get("DATABASE_URL", "postgresql://postgres:ProManjjkl.123@db.lamguerjqzpckajjpvnv.supabase.co:5432/postgres")  # Postgres: Neon / Supabase / Render
 DEV_MODE = os.environ.get("DEV_MODE") == "1"  # только для локальных тестов без Telegram
 API = f"https://api.telegram.org/bot{TOKEN}"
 DB_FILE = "database.json"
