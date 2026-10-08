@@ -12,8 +12,8 @@ from aiohttp import web, ClientSession, ClientTimeout
 # =========================
 # НАСТРОЙКИ (секреты — через переменные окружения Render)
 # =========================
-TOKEN = os.environ.get("BOT_TOKEN", "8307112310:AAFneoMo4ACr6SKTloHNQ9hVZIw1mf-apGQ")
-PROMO_URL = os.environ.get("PROMO_URL", "https://raw.githubusercontent.com/proman890k-wq/Kojsanislux/refs/heads/main/promo.txt")
+TOKEN = os.environ.get("BOT_TOKEN", "")
+PROMO_URL = os.environ.get("PROMO_URL", "ВСТАВЬ_СЮДА_ССЫЛКУ_НА_TXT_С_GITHUB")
 WEBAPP_URL = "https://proman890k-wq.github.io/Kojsanislux/"
 RENDER_URL = os.environ.get("RENDER_EXTERNAL_URL", "https://game-2gla.onrender.com")
 DEV_MODE = os.environ.get("DEV_MODE") == "1"  # только для локальных тестов без Telegram
@@ -198,6 +198,8 @@ async def handle_use(request):
 
 # =========================
 # ПРОМОКОДЫ (TXT на GitHub)
+# Формат строк:  КОД = 500 $      КОД = 5000000 токенов      # комментарий
+# Без единицы число считается токенами.
 # =========================
 _promo_cache = {"t": 0.0, "data": {}}
 _attempts = {}
@@ -259,7 +261,7 @@ async def handle_promo(request):
     reward = promos.get(code)
     if not code or not reward:
         return web.json_response({"error": "Неверный промокод"}, status=400)
-    if code in user["promos"]:
+    if code in user["promos"]:  # проверка и отметка идут без await — двойное использование невозможно
         return web.json_response({"error": "Ты уже использовал этот промокод"}, status=400)
     user["promos"].append(code)
     save_db(USERS)
@@ -275,8 +277,8 @@ async def handle_invoice(request):
         return web.json_response({"error": "Неизвестный товар"}, status=400)
     name, desc, price = ITEMS[item]
     r = await call(request.app["s"], "createInvoiceLink", title=name, description=desc,
-                    payload=item, provider_token="", currency="XTR",
-                    prices=[{"label": name, "amount": price}])
+                   payload=item, provider_token="", currency="XTR",
+                   prices=[{"label": name, "amount": price}])
     if not r.get("ok"):
         return web.json_response({"error": "Не удалось создать счёт"}, status=500)
     return web.json_response({"link": r["result"]})
@@ -307,7 +309,7 @@ async def grant_purchase(session, message):
     apply_perk(user["perks"], item)
     save_db(USERS)
     await call(session, "sendMessage", chat_id=message["chat"]["id"],
-                text=f"🎁 Покупка получена: {ITEMS[item][0]}. Спасибо!")
+               text=f"🎁 Покупка получена: {ITEMS[item][0]}. Спасибо!")
 
 async def handle_webhook(request):
     try:
@@ -323,13 +325,6 @@ async def handle_webhook(request):
             await call(session, "answerPreCheckoutQuery",
                        pre_checkout_query_id=pcq["id"], ok=ok, **extra)
         elif message.get("text", "").startswith("/start"):
-            uid = message.get("from", {}).get("id")
-            if uid:
-                login = f"tg_{uid}"
-                if login not in USERS:
-                    USERS[login] = new_user()
-                    save_db(USERS)
-                norm(USERS[login])
             await call(session, "sendMessage", chat_id=message["chat"]["id"],
                        text="🌱 Добро пожаловать в Нейроферму!\n\nЗапускай игру 👇",
                        reply_markup={"inline_keyboard": [[
@@ -356,7 +351,7 @@ async def on_start(app):
     app["s"] = ClientSession()
     if TOKEN:
         await call(app["s"], "setWebhook", url=f"{RENDER_URL}/webhook",
-                    allowed_updates=["message", "pre_checkout_query"])
+                   allowed_updates=["message", "pre_checkout_query"])
     app["keep_alive_task"] = asyncio.create_task(keep_alive(app))
 
 async def on_cleanup(app):
