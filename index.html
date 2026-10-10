@@ -264,7 +264,7 @@ h3{margin:16px 0 8px;font-size:14px;color:var(--dim);letter-spacing:.3px}
 .help ul{margin:8px 0 0;padding-left:18px;color:var(--dim);font-size:12px;line-height:1.6}
 .gauge{height:12px;border-radius:99px;background:rgba(255,255,255,.08);overflow:hidden;margin:8px 0}
 .gauge i{display:block;height:100%;background:linear-gradient(90deg,var(--neon),var(--star),var(--bad));transition:width .4s}
-#proftabs button{font-size:12px;padding:9px 2px}
+#proftabs button{font-size:11px;padding:9px 1px}
 #daily{display:block;margin:8px auto 0;padding:8px 18px;border-radius:99px;border:1px solid var(--line);background:var(--panel2);color:var(--text);font:700 13px Manrope,sans-serif}
 #daily.ready{border-color:var(--neon);color:var(--neon);animation:pulse .8s ease-in-out infinite;box-shadow:0 0 22px rgba(93,242,196,.4)}
 .ic.btn{cursor:default}
@@ -311,6 +311,21 @@ h3::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,var(--li
 .lcard.over .meter i{background:linear-gradient(90deg,var(--star),var(--bad))}
 .qrow{display:flex;gap:6px;margin:6px 0}
 .qrow .buy{flex:1;min-width:0;padding:9px 4px}
+
+/* ---------- обучение и настройки ---------- */
+.tut{position:fixed;inset:0;z-index:30;display:grid;place-items:center;padding:18px;background:rgba(5,7,16,.78);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);animation:pin .3s}
+.tut-card{width:min(380px,100%);padding:22px 20px 18px;border-radius:26px;text-align:center;border:1px solid rgba(178,123,255,.45);
+ background:radial-gradient(120% 120% at 50% 0%,rgba(93,242,196,.18),transparent 60%),linear-gradient(160deg,#1c2250,#0d1230);box-shadow:0 24px 60px #000c}
+.tut-ic{font-size:54px;line-height:1;margin-bottom:6px;filter:drop-shadow(0 0 18px rgba(93,242,196,.5))}
+.tut-t{font:800 19px Unbounded,sans-serif;margin:6px 0 8px}
+.tut-d{color:#c3c9e0;font-size:14px;line-height:1.55;min-height:92px;text-align:left}
+.tut-d b{color:var(--neon)}
+.tut-dots{display:flex;gap:6px;justify-content:center;margin:12px 0}
+.tut-dots i{width:7px;height:7px;border-radius:99px;background:rgba(255,255,255,.18);transition:all .25s}
+.tut-dots i.on{width:22px;background:var(--neon);box-shadow:0 0 10px var(--neon)}
+.tut-act{display:flex;gap:8px}.tut-act .buy{flex:1}
+#musicBtn{flex:0 0 auto;padding:8px 12px;border-radius:14px;border:1px solid var(--line);background:var(--panel);color:var(--text);font-size:16px}
+#musicBtn.on{border-color:var(--neon);box-shadow:0 0 16px rgba(93,242,196,.35)}
 </style>
 </head>
 <body>
@@ -318,7 +333,7 @@ h3::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,var(--li
 <div class="toast" id="toast"></div>
 <div class="ev" id="ev" hidden><b id="evt"></b><small id="evd"></small><div class="cbar"><i id="evb"></i></div></div>
 <div class="wrap">
-  <div class="coins"><span>⚡ <b id="wT">0</b></span><span>💵 <b id="wU">0.00</b></span></div>
+  <div class="coins"><span>⚡ <b id="wT">0</b></span><span>💵 <b id="wU">0.00</b></span><button id="musicBtn" title="Музыка">🎵</button></div>
   <div class="lvl" id="lvl"><b id="lvN">LVL 1</b><div class="bar"><i id="lvB"></i></div><span id="lvT"></span></div>
 
   <div id="pFarm">
@@ -523,7 +538,7 @@ h3::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,var(--li
   <div id="pProf" hidden>
     <div class="row"><div class="ic" id="pAva" style="--c:#b27bff">👤</div><div class="info"><b id="pName"></b><small id="pSub"></small></div></div>
     <div class="acts"><input id="avIn" class="wide" type="text" maxlength="16" placeholder="Твой аватар — любой эмодзи"><button class="buy" id="avBtn">Поставить</button></div>
-    <div class="chips" id="proftabs"><button data-t="pSecStats" class="on">Статистика</button><button data-t="pSecTop">🏆 Лидерборд</button><button data-t="pSecBag">🎒 Инвентарь</button><button data-t="pSecRef">🎁 Друзья</button></div>
+    <div class="chips" id="proftabs"><button data-t="pSecStats" class="on">Статистика</button><button data-t="pSecTop">🏆 Топ</button><button data-t="pSecBag">🎒 Вещи</button><button data-t="pSecRef">🎁 Друзья</button><button data-t="pSecSet">⚙️ Опции</button></div>
     <div id="pSecStats">
     <button class="act wideact" id="refGo" style="color:var(--neon);border:1px solid rgba(93,242,196,.4);margin:0 0 10px"><i>🎁</i><b>Пригласи друга — получи $500</b></button>
     <div id="pstats"></div>
@@ -534,12 +549,28 @@ h3::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,var(--li
     <div class="chips" id="topchips"><button data-k="tok" class="on">⚡ Токены</button><button data-k="usd">💵 Доллары</button><button data-k="xp">⭐ Уровень</button></div>
     <div id="toplist"></div>
     </div>
+    <div id="pSecSet" hidden>
+      <div class="row"><div class="ic" style="--c:#4da3ff">🎵</div><div class="info"><b>Музыка</b><small>Лоу-фай вайб, играет в фоне</small></div><button class="buy" id="musToggle">Вкл</button></div>
+      <div class="row" style="display:block"><b>Громкость</b><input class="range" type="range" id="musVol" min="0" max="100" value="50"></div>
+      <h3>📖 Обучение</h3>
+      <button class="reset" id="tutBtn">Пройти обучение заново</button>
+      <details class="help" open><summary>Коротко: как играть</summary><ul>
+        <li>Тапай по ядру — это токены ⚡. Покупай генераторы и апгрейды на вкладке «Ферма».</li>
+        <li>Лови золотые ⭐ и проходи мини-события — это бонусы к доходу.</li>
+        <li>В «Банке» меняй токены на доллары 💵, клади их на вклад (1% в час) или бери кредит.</li>
+        <li>В «Веселье» играй на доллары — рулетка, краш, мины, кости, монетка, слоты.</li>
+        <li>В «Компаниях» вступай или создавай свою: сервер ест часть токенов, зато даёт бафф дохода всем.</li>
+        <li>Забирай ящик 📦 и ежедневную награду 🎁, зови друзей — $500 за каждого.</li>
+      </ul></details>
+    </div>
     <div id="pSecRef" hidden></div>
     <div id="pSecBag" hidden>
     <div id="bag"></div>
     </div>
   </div>
 </div>
+
+<div class="tut" id="tut" hidden><div class="tut-card"><div class="tut-ic" id="tutIc"></div><div class="tut-t" id="tutT"></div><div class="tut-d" id="tutD"></div><div class="tut-dots" id="tutDots"></div><div class="tut-act"><button class="buy alt" id="tutSkip">Пропустить</button><button class="buy" id="tutNext">Дальше</button></div></div></div>
 
 <nav class="tabs" id="nav"><button data-t="pFarm" class="on"><i>🧠</i><span>Ферма</span></button><button data-t="pConv"><i>🏦</i><span>Банк</span></button><button data-t="pFun"><i>🎡</i><span>Веселье</span></button><button data-t="pCo"><i>🏢</i><span>Компании</span></button><button data-t="pProf"><i>👤</i><span>Профиль</span></button></nav>
 
@@ -637,7 +668,7 @@ $("items").innerHTML = Object.entries(ITEMS).map(([k,v])=>`<div class="row"><div
 function bind(sel, ids, cb){$(sel).addEventListener("click", e => {const btn = e.target.closest("button[data-t]"); if(!btn) return; const t = btn.dataset.t; [...e.currentTarget.children].forEach(b => b.classList.toggle("on", b === btn)); ids.forEach(i => $(i).hidden = i !== t); cb && cb(t)})}
 bind("tabs", ["farm","shop"]);
 bind("shopchips", ["ups","don"]);
-bind("proftabs", ["pSecStats","pSecTop","pSecBag","pSecRef"], t => {if(t === "pSecTop") loadTop(); else if(t === "pSecBag") rBag(); else if(t === "pSecRef") loadRef()});
+bind("proftabs", ["pSecStats","pSecTop","pSecBag","pSecRef","pSecSet"], t => {if(t === "pSecTop") loadTop(); else if(t === "pSecBag") rBag(); else if(t === "pSecRef") loadRef()});
 
 // ---------- Серверные запросы ----------
 let st = {inv:{}, next:0, rate:1000000}, srv = {}, dailySt = {can:false, streak:0};
@@ -727,7 +758,7 @@ $("topchips").addEventListener("click", e => {const b = e.target.closest("button
 function applyPerks(p){
   if((p.boost_until||0) > s.bu){s.bu = p.boost_until; s.bm = p.boost_mult || s.bm}
   s.autoU = Math.max(s.autoU||0, p.auto_until||0);
-  if(p.offline24) s.off24 = 1; if(p.vip) s.vip = 1; if(p.perm2) s.perm = 1; save();
+  if(p.offline24) s.off24 = 1; s.vip = p.vip ? 1 : 0; if(p.perm2) s.perm = 1; save();
 }
 
 function applyItem(k){
@@ -1224,7 +1255,9 @@ function renderPrev(){
 }
 function renderOut(){
   const lvl = lvlOf(s.xp);
-  $("cfUsd").innerHTML = `<i>💵</i><b>$1 000 000</b><small>у тебя ${usdf(s.usd)}</small>`; $("cfUsd").disabled = s.usd < CREATE_USD;
+  if(s.vip){ $("cfUsd").innerHTML = `<i>👑</i><b>Бесплатно</b><small>привилегия VIP</small>`; $("cfUsd").disabled = false }
+  else { $("cfUsd").innerHTML = `<i>💵</i><b>$1 000 000</b><small>у тебя ${usdf(s.usd)}</small>`; $("cfUsd").disabled = s.usd < CREATE_USD }
+  $("cfStar").hidden = !!s.vip;
   $("cfStar").innerHTML = `<i>⭐</i><b>${coLic > 0 ? "Лицензия ×" + coLic : "250 звёзд"}</b><small>${coLic > 0 ? "создать бесплатно" : "купить лицензию"}</small>`;
   renderPrev();
   const rows = (coList?.rows || []).filter(r => !r.private);
@@ -1308,7 +1341,7 @@ $("pCo").addEventListener("click", async e => {
   else if(d.join){ const r = await coAct("/join", {id:d.join}); if(r){ toast("🏢 Добро пожаловать в компанию!"); burst(W/2, H/2, 60, "#b27bff", 9) } }
   else if(d.upg){ const r = await coAct("/upgrade", {k:d.upg}, false); if(r){ toast("🛠 Улучшено!"); burst(W/2, H/2, 40, "#5df2c4", 8) } }
   else if(id === "coCodeBtn"){ const code = $("coCode").value.trim(); if(!code) return toast("⚠️ Введи код"); const r = await coAct("/join", {code}); if(r){ toast("🏢 Ты в компании!"); $("coCode").value = "" } }
-  else if(id === "cfUsd") createCo("usd")
+  else if(id === "cfUsd") createCo(s.vip ? "vip" : "usd")
   else if(id === "cfStar") coLic > 0 ? createCo("stars") : buyLicense()
   else if(id === "coDonBtn"){ const v = +$("coDon").value; if(!(v >= 1)) return toast("⚠️ Минимум $1"); const r = await coAct("/donate", {usd:v}); if(r){ $("coDon").value = ""; toast(`💰 Вложено ${usdf(v)} в казну`); hap("success","notificationOccurred") } }
   else if(id === "coDonT") $("coDonBox").hidden = !$("coDonBox").hidden
@@ -1355,6 +1388,103 @@ $("pSecRef").addEventListener("click", e => {
   if(b.dataset.ref === "share" && tg?.openTelegramLink) tg.openTelegramLink("https://t.me/share/url?url=" + encodeURIComponent(refData.link) + "&text=" + encodeURIComponent(txt));
   else { try{ navigator.clipboard?.writeText(refData.link) }catch(_){} toast("📋 Ссылка скопирована") }
 });
+
+
+// ======================================================
+// ---------- Музыка (генерируется прямо в браузере) ----------
+// ======================================================
+const Music = (() => {
+  let ac, bus, master, timer, nextT = 0, step = 0, on = false, started = false, nb;
+  const pref = () => { try { return localStorage.getItem("nf_music") !== "0" } catch(_) { return true } };
+  const vol0 = () => { try { const v = localStorage.getItem("nf_vol"); return v == null ? 0.5 : +v } catch(_) { return 0.5 } };
+  const SP = 60 / 76 / 2;                                   // восьмая при 76 BPM
+  const CH = [[57,60,64,67,71],[53,57,60,64,67],[48,52,55,59,62],[55,59,62,64,67]];  // Am9 Fmaj9 Cmaj9 G6
+  const BS = [45,41,36,43], PENT = [69,72,74,76,79,81];
+  const mtof = m => 440 * Math.pow(2, (m - 69) / 12);
+  function tone(t, m, dur, type, vol, att = 0.01){
+    const o = ac.createOscillator(), g = ac.createGain(); o.type = type; o.frequency.value = mtof(m);
+    g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(vol, t + att); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(bus); o.start(t); o.stop(t + dur + 0.05);
+  }
+  function kick(t){
+    const o = ac.createOscillator(), g = ac.createGain(); o.frequency.setValueAtTime(130, t); o.frequency.exponentialRampToValueAtTime(42, t + 0.13);
+    g.gain.setValueAtTime(0.55, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.28); o.connect(g); g.connect(bus); o.start(t); o.stop(t + 0.3);
+  }
+  function hiss(t, dur, vol, hp){
+    const s = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain(); s.buffer = nb; f.type = "highpass"; f.frequency.value = hp;
+    g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur); s.connect(f); f.connect(g); g.connect(bus); s.start(t, Math.random()); s.stop(t + dur + 0.02);
+  }
+  function play(n, t){
+    const bar = Math.floor(n / 8) % 4, i = n % 8, ch = CH[bar];
+    if(i % 2) t += 0.028;                                   // свинг
+    if(i === 0){ ch.forEach((m, k) => tone(t + k * 0.012, m, 3.4, "sine", 0.05, 0.5)); tone(t, BS[bar], 1.5, "triangle", 0.2, 0.02) }
+    if(i === 3 || i === 6) ch.slice(1).forEach((m, k) => tone(t + k * 0.01, m + 12, 0.9, "triangle", 0.03, 0.02));
+    if(i === 5) tone(t, BS[bar], 0.5, "triangle", 0.14, 0.02);
+    if(i === 0 || i === 5) kick(t);
+    if(i === 4) hiss(t, 0.2, 0.14, 1800);
+    hiss(t, 0.05, i % 2 ? 0.05 : 0.025, 7000);
+    if(i % 2 === 0 && Math.random() < 0.24) tone(t, PENT[Math.floor(Math.random() * PENT.length)], 1.1, "sine", 0.06, 0.02);
+  }
+  function sched(){ while(nextT < ac.currentTime + 0.35){ play(step, nextT); nextT += SP; step = (step + 1) % 32 } }
+  function init(){
+    ac = new (window.AudioContext || window.webkitAudioContext)();
+    master = ac.createGain(); master.gain.value = 0; master.connect(ac.destination);
+    const lp = ac.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 2300; lp.Q.value = 0.4;
+    bus = ac.createGain(); bus.connect(lp); lp.connect(master);
+    const dl = ac.createDelay(1), fb = ac.createGain(), wet = ac.createGain(); dl.delayTime.value = SP * 3; fb.gain.value = 0.32; wet.gain.value = 0.35;
+    lp.connect(dl); dl.connect(fb); fb.connect(dl); dl.connect(wet); wet.connect(master);
+    nb = ac.createBuffer(1, ac.sampleRate * 2, ac.sampleRate); const d = nb.getChannelData(0); for(let k = 0; k < d.length; k++) d[k] = Math.random() * 2 - 1;
+    const vc = ac.createBufferSource(), vf = ac.createBiquadFilter(), vg = ac.createGain(); vc.buffer = nb; vc.loop = true; vf.type = "bandpass"; vf.frequency.value = 3500; vg.gain.value = 0.012;
+    vc.connect(vf); vf.connect(vg); vg.connect(master); vc.start();   // потрескивание винила
+  }
+  function start(){
+    if(on) return; if(!ac) init(); on = true; started = true;
+    ac.resume(); nextT = ac.currentTime + 0.1; step = 0; clearInterval(timer); timer = setInterval(sched, 120);
+    master.gain.cancelScheduledValues(ac.currentTime); master.gain.linearRampToValueAtTime(vol0() * 0.9, ac.currentTime + 1.5); ui();
+  }
+  function stop(){
+    if(!on) return; on = false; clearInterval(timer);
+    master.gain.cancelScheduledValues(ac.currentTime); master.gain.linearRampToValueAtTime(0, ac.currentTime + 0.4); ui();
+  }
+  function ui(){ $("musicBtn").classList.toggle("on", on); $("musicBtn").textContent = on ? "🎵" : "🔇"; $("musToggle").textContent = on ? "Выкл" : "Вкл"; $("musToggle").classList.toggle("alt", on) }
+  function setVol(v){ try { localStorage.setItem("nf_vol", v) } catch(_) {} if(on) master.gain.linearRampToValueAtTime(v * 0.9, ac.currentTime + 0.1) }
+  function toggle(){ const next = !on; try { localStorage.setItem("nf_music", next ? "1" : "0") } catch(_) {} next ? start() : stop() }
+  // браузеры разрешают звук только после касания — включаем при первом тапе, если музыка не выключена
+  const unlock = () => { if(!started && pref()) start(); if(started) removeEventListener("pointerdown", unlock) };
+  addEventListener("pointerdown", unlock);
+  document.addEventListener("visibilitychange", () => { if(!ac) return; if(document.hidden) ac.suspend(); else if(on) ac.resume() });
+  $("musVol").value = Math.round(vol0() * 100);
+  $("musVol").addEventListener("input", e => setVol(+e.target.value / 100));
+  $("musToggle").onclick = toggle; $("musicBtn").onclick = toggle; ui();
+  return {toggle};
+})();
+
+// ======================================================
+// ---------- Обучение ----------
+// ======================================================
+const TUT = [
+  {ic:"🧠", t:"Добро пожаловать в Нейроферму!", p:"pFarm", d:"Ты строишь свою нейросеть. <b>Тапай по большому ядру</b> — каждый тап даёт токены ⚡. Чем больше токенов, тем быстрее растёшь."},
+  {ic:"🏗", t:"Ферма и апгрейды", p:"pFarm", d:"Токены тратятся на <b>генераторы</b> — они копят токены сами, даже когда тебя нет. На вкладке «Магазин» — апгрейды тапа, критов и офлайн-дохода. Лови золотые ⭐ и мини-события — это бонусы."},
+  {ic:"🏦", t:"Банк", p:"pConv", d:"Меняй токены на <b>доллары 💵</b> (и обратно). Деньги можно положить на <b>вклад</b> — 1% в час, а при нехватке взять <b>кредит</b>. Только не забывай возвращать: бот напомнит о долге."},
+  {ic:"🎡", t:"Веселье", p:"pFun", d:"Рулетка, краш, мины, кости, монетка и слоты. Ставки — только в долларах. Играй осторожно: можно как выиграть, так и всё потерять."},
+  {ic:"🏢", t:"Компании", p:"pCo", d:"Вступай в компанию или создай свою. Сервер компании ест часть токенов, а взамен даёт <b>бафф к доходу</b> всем участникам. Вкладывай в казну, прокачивай улучшения, лови рост цены монеты. VIP открывает компанию бесплатно."},
+  {ic:"🎁", t:"Бонусы и друзья", p:"pProf", d:"Каждый день забирай <b>ежедневную награду</b> и открывай ящики 📦 — из них падает ядро для сервера. Зови друзей по своей ссылке: <b>$500 за каждого</b>. Ссылка — в Профиль → Друзья."},
+  {ic:"🎵", t:"Всё готово!", p:"pFarm", d:"Музыку и это обучение можно включить в любой момент: <b>Профиль → ⚙️ Опции</b>. Удачи, и пусть токены льются рекой!"}
+];
+let tutI = 0;
+function tutShow(){
+  const x = TUT[tutI]; $("tutIc").textContent = x.ic; $("tutT").textContent = x.t; $("tutD").innerHTML = x.d;
+  $("tutDots").innerHTML = TUT.map((_, i) => `<i class="${i === tutI ? "on" : ""}"></i>`).join("");
+  $("tutNext").textContent = tutI === TUT.length - 1 ? "Поехали!" : "Дальше";
+  $("tutSkip").hidden = tutI === TUT.length - 1;
+  if(page !== x.p) go(x.p);
+}
+function tutOpen(){ tutI = 0; $("tut").hidden = false; tutShow() }
+function tutClose(){ $("tut").hidden = true; try { localStorage.setItem("nf_tut", "1") } catch(_) {} go("pFarm"); hap("success","notificationOccurred") }
+$("tutNext").onclick = () => { if(tutI >= TUT.length - 1) tutClose(); else { tutI++; tutShow(); hap("light") } };
+$("tutSkip").onclick = tutClose;
+$("tutBtn").onclick = tutOpen;
+try { if(!localStorage.getItem("nf_tut")) setTimeout(tutOpen, 1200) } catch(_) {}
 
 
 mnRender(); mnUI(); diceInfo();
