@@ -26,6 +26,9 @@ WEBAPP_URL = "https://proman890k-wq.github.io/Kojsanislux/"
 RENDER_URL = os.environ.get("RENDER_EXTERNAL_URL", "https://game-2gla.onrender.com")
 DATABASE_URL = os.environ.get("DATABASE_URL", "")  # Postgres: Neon / Supabase / Render
 WEBHOOK_SECRET = hashlib.sha256(("wh:" + TOKEN).encode()).hexdigest()[:48] if TOKEN else ""
+ADMIN_IDS = {int(x) for x in re.findall(r"\d+", os.environ.get("ADMIN_IDS", ""))}  # Telegram ID админов (через запятую)
+ADMIN_KEY = os.environ.get("ADMIN_KEY", "")  # ключ для консольной команды и /admin/vip
+PORT = int(os.environ.get("PORT", 8080))
 DEV_MODE = os.environ.get("DEV_MODE") == "1"  # только для локальных тестов без Telegram
 API = f"https://api.telegram.org/bot{TOKEN}"
 DB_FILE = "database.json"
@@ -50,16 +53,25 @@ def touch(login):
     """Пометить пользователя изменённым — фоновая задача запишет его в БД."""
     _dirty.add(login)
 
+async def get_pool():
+    """Пул соединений с Postgres; пересоздаётся, если соединение упало."""
+    global _pool
+    if _pool is None:
+        _pool = await asyncpg.create_pool(DATABASE_URL, min_size=1, max_size=3, statement_cache_size=0,
+                                          command_timeout=30, max_inactive_connection_lifetime=240)
+    return _pool
+
 async def flush():
-    global _dirty, _deleted
+    global _dirty, _deleted, _pool
     if not _dirty and not _deleted:
         return
     batch, _dirty = _dirty, set()
     gone, _deleted = _deleted, set()
     try:
-        if _pool:
+        if DATABASE_URL:
             rows = [(l, json.dumps(USERS[l], ensure_ascii=False)) for l in batch if l in USERS]
-            async with _pool.acquire() as c:
+            pool = await get_pool()
+            async with pool.acquire() as c:
                 if gone:
                     await c.execute("DELETE FROM users WHERE login = ANY($1::text[])", list(gone))
                 if rows:
@@ -73,8 +85,14 @@ async def flush():
             os.replace(tmp, DB_FILE)
     except Exception as e:
         print("DB WRITE ERROR:", repr(e))
-        _dirty |= batch
+        _dirty |= batch          # ничего не теряем — повторим на следующем тике
         _deleted |= gone
+        if _pool:                # битое соединение — пересоздадим пул
+            try:
+                _pool.terminate()
+            except Exception:
+                pass
+            _pool = None
 
 async def writer():
     while True:
@@ -95,9 +113,8 @@ async def db_init():
     if DATABASE_URL:
         if asyncpg is None:
             raise RuntimeError("Добавь asyncpg в requirements.txt")
-        _pool = await asyncpg.create_pool(DATABASE_URL, min_size=1, max_size=3,
-                                          statement_cache_size=0)
-        async with _pool.acquire() as c:
+        pool = await get_pool()
+        async with pool.acquire() as c:
             await c.execute("CREATE TABLE IF NOT EXISTS users "
                             "(login TEXT PRIMARY KEY, data JSONB NOT NULL)")
             rows = await c.fetch("SELECT login, data FROM users")
@@ -109,7 +126,8 @@ async def db_init():
         print(f"DB: Postgres, пользователей: {len(USERS)}")
     else:
         USERS.update(read_file_db())
-        print("WARNING: DATABASE_URL не задан — данные в файле и пропадут при перезапуске на Render")
+        print("!!! DATABASE_URL не задан — данные пишутся в файл и ПРОПАДУТ при перезапуске на Render. "
+              "Задай DATABASE_URL (Supabase/Neon) в Environment, чтобы всё сохранялось.")
     for l, u in USERS.items():  # компании лежат в той же таблице
         if l.startswith("co_") and isinstance(u, dict) and "members" in u and "cores" in u:
             COMPANIES[u["id"]] = u
@@ -482,6 +500,8 @@ async def handle_webhook(request):
             extra = {} if ok else {"error_message": "Неизвестный товар"}
             await call(session, "answerPreCheckoutQuery",
                        pre_checkout_query_id=pcq["id"], ok=ok, **extra)
+        elif message.get("text", "").startswith(("/givevip", "/revokevip", "/vips")):
+            await admin_command(session, message)
         elif message.get("text", "").startswith("/start"):
             parts = message["text"].split(maxsplit=1)
             param = parts[1].strip() if len(parts) > 1 else ""
@@ -880,7 +900,9 @@ async def handle_co_create(request):
         min_level = max(1, min(999, int(data.get("min_level", 1))))
     except (TypeError, ValueError):
         min_level = 1
-    if data.get("pay") == "stars":
+    if is_vip(user):  # VIP открывает компанию бесплатно
+        d_usd = 0.0
+    elif data.get("pay") == "stars":
         if user["perks"].get("company_license", 0) < 1:
             return err("Нет лицензии — купи её за 250 ⭐")
         user["perks"]["company_license"] -= 1
@@ -907,7 +929,7 @@ async def handle_co_create(request):
     co_log(c, f"🎉 Компания «{name}» ({ticker}) основана")
     touch(login)
     touch("co_" + cid)
-    return ok(user, login, d_usd=d_usd, d_xp=500 if d_usd else 200)
+    return ok(user, login, d_usd=d_usd, d_xp=500 if d_usd else 300 if is_vip(user) else 200)
 
 async def handle_co_join(request):
     data, login, user = await co_ctx(request)
@@ -1315,6 +1337,82 @@ CO_ROUTES = [("/api/co/sync", handle_co_sync), ("/api/co/list", handle_co_list),
              ("/api/daily", handle_daily), ("/api/bank", handle_bank)]
 
 # =========================
+# АДМИН: выдача и снятие VIP по Telegram ID
+# Бот:     /givevip <ID>   /revokevip <ID>   /vips        (только для ADMIN_IDS)
+# Консоль: python maingame.py vip <ID>   |   python maingame.py unvip <ID>   (нужен ADMIN_KEY)
+# =========================
+async def set_vip(session, uid, on=True):
+    login = f"tg_{uid}"
+    user = norm(USERS.setdefault(login, new_user()))
+    if on:
+        user["perks"]["vip"] = 1
+        user["purchases"].append({"item": "vip", "charge": f"admin_{int(time.time())}", "ts": time.time(), "admin": True})
+    else:
+        user["perks"].pop("vip", None)
+    touch(login)
+    await flush()  # сразу пишем в БД — переживёт перезапуск
+    if session:
+        await call(session, "sendMessage", chat_id=uid,
+                   text="👑 Тебе выдан VIP-статус! Открой игру — всё уже активно." if on else "Твой VIP-статус снят.")
+    return user
+
+async def handle_admin_vip(request):
+    key = request.headers.get("X-Admin-Key", "")
+    if not ADMIN_KEY or not hmac.compare_digest(key, ADMIN_KEY):
+        return web.json_response({"error": "forbidden"}, status=403)
+    data = await read_json(request)
+    uid = re.sub(r"\D", "", str(data.get("id", "")))[:15]
+    if not uid:
+        return err("Нужен числовой ID")
+    on = data.get("action", "grant") != "revoke"
+    await set_vip(request.app["s"], int(uid), on)
+    return web.json_response({"ok": True, "id": uid, "vip": on})
+
+async def admin_command(session, message):
+    """Команды бота для админов. Возвращает True, если сообщение обработано."""
+    text = message.get("text", "")
+    if not text.startswith(("/givevip", "/revokevip", "/vips")):
+        return False
+    chat, me = message["chat"]["id"], message.get("from", {}).get("id")
+    if me not in ADMIN_IDS:
+        return True  # молча игнорируем чужих
+    parts = text.split()
+    cmd = parts[0].split("@")[0]
+    if cmd == "/vips":
+        ids = [l[3:] for l, u in USERS.items() if not l.startswith("co_") and (u.get("perks") or {}).get("vip")]
+        await call(session, "sendMessage", chat_id=chat, text=f"👑 VIP-игроков: {len(ids)}\n" + "\n".join(ids[:60]))
+        return True
+    uid = re.sub(r"\D", "", parts[1]) if len(parts) > 1 else ""
+    if not uid:
+        await call(session, "sendMessage", chat_id=chat, text=f"Использование: {cmd} <Telegram ID>")
+        return True
+    on = cmd == "/givevip"
+    await set_vip(session, int(uid), on)
+    await call(session, "sendMessage", chat_id=chat, text=f"{'👑 VIP выдан' if on else '✖ VIP снят'}: {uid}")
+    return True
+
+def cli(argv):
+    """python maingame.py vip <ID> / unvip <ID> — шлёт команду в уже запущенный сервер."""
+    import urllib.request
+    if len(argv) < 3 or argv[1] not in ("vip", "unvip"):
+        print("Использование: python maingame.py vip <ID>  |  python maingame.py unvip <ID>")
+        return
+    if not ADMIN_KEY:
+        print("Задай переменную окружения ADMIN_KEY")
+        return
+    body = json.dumps({"id": argv[2], "action": "grant" if argv[1] == "vip" else "revoke"}).encode()
+    last = None
+    for base in (f"http://127.0.0.1:{PORT}", RENDER_URL):
+        try:
+            req = urllib.request.Request(base + "/admin/vip", body,
+                                         {"Content-Type": "application/json", "X-Admin-Key": ADMIN_KEY})
+            print(urllib.request.urlopen(req, timeout=20).read().decode())
+            return
+        except Exception as e:
+            last = e
+    print("Не удалось связаться с сервером:", last)
+
+# =========================
 # РЕФЕРАЛКА: $500 за каждого нового игрока по твоей ссылке
 # Ссылка: https://t.me/<бот>?start=ref_<твой Telegram ID>
 # Приглашённого определяет сервер (по /start или подписанному start_param), клиент ничего не подделает.
@@ -1389,6 +1487,7 @@ async def on_cleanup(app):
         app["market_task"].cancel()
     if "debt_task" in app:
         app["debt_task"].cancel()
+    _dirty.update(USERS)  # перед остановкой пишем всех
     await flush()
     if _pool:
         await _pool.close()
@@ -1401,6 +1500,7 @@ app = web.Application(middlewares=[cors])
 app.router.add_get("/", handle_index)
 app.router.add_get("/health", handle_health)
 app.router.add_post("/webhook", handle_webhook)
+app.router.add_post("/admin/vip", handle_admin_vip)
 for path, h in [("/api/me", handle_me), ("/api/drop", handle_drop), ("/api/use", handle_use),
                 ("/api/promo", handle_promo), ("/api/save", handle_save), ("/api/top", handle_top), ("/api/invoice", handle_invoice)]:
     app.router.add_route("*", path, h)
@@ -1410,4 +1510,8 @@ app.on_startup.append(on_start)
 app.on_cleanup.append(on_cleanup)
 
 if __name__ == "__main__":
-    web.run_app(app, host="0.0.0.0", port=int(os.environ.get("PORT", 8080)))
+    import sys
+    if len(sys.argv) > 1:
+        cli(sys.argv)
+    else:
+        web.run_app(app, host="0.0.0.0", port=PORT)
