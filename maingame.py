@@ -8,6 +8,7 @@ import hmac
 import hashlib
 import secrets
 import asyncio
+import unicodedata
 from urllib.parse import parse_qsl
 from aiohttp import web, ClientSession, ClientTimeout
 
@@ -19,11 +20,12 @@ except ImportError:
 # =========================
 # НАСТРОЙКИ (секреты — через переменные окружения Render)
 # =========================
-TOKEN = os.environ.get("BOT_TOKEN", "8307112310:AAFneoMo4ACr6SKTloHNQ9hVZIw1mf-apGQ")
+TOKEN = os.environ.get("BOT_TOKEN", "")  # ОБЯЗАТЕЛЬНО через переменную окружения
 PROMO_URL = os.environ.get("PROMO_URL", "https://raw.githubusercontent.com/proman890k-wq/Kojsanislux/refs/heads/main/promo.txt")
 WEBAPP_URL = "https://proman890k-wq.github.io/Kojsanislux/"
 RENDER_URL = os.environ.get("RENDER_EXTERNAL_URL", "https://game-2gla.onrender.com")
-DATABASE_URL = os.environ.get("DATABASE_URL", "postgresql://postgres.lamguerjqzpckajjpvnv:ProManjjkl.123@aws-0-ap-northeast-1.pooler.supabase.com:5432/postgres")  # Postgres: Neon / Supabase / Render
+DATABASE_URL = os.environ.get("DATABASE_URL", "")  # Postgres: Neon / Supabase / Render
+WEBHOOK_SECRET = hashlib.sha256(("wh:" + TOKEN).encode()).hexdigest()[:48] if TOKEN else ""
 DEV_MODE = os.environ.get("DEV_MODE") == "1"  # только для локальных тестов без Telegram
 API = f"https://api.telegram.org/bot{TOKEN}"
 DB_FILE = "database.json"
@@ -109,14 +111,17 @@ async def db_init():
         USERS.update(read_file_db())
         print("WARNING: DATABASE_URL не задан — данные в файле и пропадут при перезапуске на Render")
     for l, u in USERS.items():  # компании лежат в той же таблице
-        if l.startswith("co_") and isinstance(u, dict) and "coin" in u:
+        if l.startswith("co_") and isinstance(u, dict) and "members" in u and "cores" in u:
             COMPANIES[u["id"]] = u
+    migrate_coins()
     print(f"Компаний: {len(COMPANIES)}")
 
 def new_user():
     return {"inv": {"cooler": 1}, "next_box": 0, "perks": {}, "purchases": [],
             "promos": [], "created": time.time(),
-            "stats": {"tot": 0, "usd": 0}, "name": "",
+            "stats": {"tot": 0, "usd": 0}, "name": "", "avatar": "",
+            "daily": {"last": "", "streak": 0}, "bank": {"amt": 0.0, "t": 0},
+            "loan": {"debt": 0.0, "principal": 0.0, "t": 0, "since": 0, "last_remind": 0, "remind_n": 0},
             "co": {"id": None, "hold": {}, "cost": {}, "last": 0, "pending": 0.0},
             "ref": {"by": None, "paid": True, "count": 0, "earned": 0.0, "names": []}}
 
@@ -250,7 +255,8 @@ async def handle_me(request):
         "perks": user["perks"],
         "profile": {"id": login[3:], "created": user["created"],
                     "promos": len(user["promos"]), "promo_list": promo_list(user),
-                    "vip": is_vip(user)},
+                    "vip": is_vip(user), "avatar": user.get("avatar", "")},
+        "daily": daily_info(user),
     })
 
 async def handle_drop(request):
@@ -394,9 +400,9 @@ async def handle_save(request):
 
 def board(key, login, n=20):
     rows = [(l, u) for l, u in USERS.items()
-            if isinstance(u.get("stats"), dict) and u["stats"].get(key, 0) > 0]
+            if not l.startswith("co_") and isinstance(u.get("stats"), dict) and u["stats"].get(key, 0) > 0]
     rows.sort(key=lambda r: r[1]["stats"][key], reverse=True)
-    top = [{"name": u.get("name") or "Игрок", "v": u["stats"][key], "me": l == login}
+    top = [{"name": u.get("name") or "Игрок", "a": u.get("avatar", ""), "v": u["stats"][key], "me": l == login}
            for l, u in rows[:n]]
     rank = next((i + 1 for i, (l, _) in enumerate(rows) if l == login), 0)
     return top, rank
@@ -415,6 +421,8 @@ async def handle_top(request):
 # =========================
 async def handle_invoice(request):
     data = await read_json(request)
+    if not get_login(data):
+        return web.json_response({"error": "Unauthorized"}, status=401)
     item = data.get("item")
     if item not in ITEMS:
         return web.json_response({"error": "Неизвестный товар"}, status=400)
@@ -459,6 +467,9 @@ async def grant_purchase(session, message):
                text=f"🎁 Покупка получена: {ITEMS[item][0]}. Спасибо!")
 
 async def handle_webhook(request):
+    if WEBHOOK_SECRET and not hmac.compare_digest(
+            request.headers.get("X-Telegram-Bot-Api-Secret-Token", ""), WEBHOOK_SECRET):
+        return web.Response(status=403, text="forbidden")  # иначе кто угодно мог бы подделать оплату
     try:
         data = await request.json()
         session = request.app["s"]
@@ -496,22 +507,27 @@ async def handle_webhook(request):
     return web.Response(text="OK")
 
 # =========================
-# КОМПАНИИ, СЕРВЕРЫ И КРИПТА
+# КОМПАНИИ, СЕРВЕРЫ, УЛУЧШЕНИЯ, БАНК, ЕЖЕДНЕВКА
 # Компания лежит в той же таблице, что и игроки (ключ "co_<id>").
+# Цена монеты — показатель компании (не торгуется): чем она выше, тем сильнее аппетит сервера. Всё покупается за доллары.
 # =========================
 ICONS = ["🏢", "🚀", "🧠", "🐉", "🦄", "🔥", "🌐", "⚡", "🛰️", "🐸", "💎", "🧬"]
 CREATE_USD = 1_000_000      # цена открытия компании
-TRADE_FEE = 0.01            # комиссия биржи -> в казну компании монеты
 CORE_SLOTS = 3              # максимум ядер на сервере
-TICK_SEC = 10               # шаг цены
+TICK_SEC = 10               # шаг случайных событий
 NO_SAVE = "Нет сохранения — подожди пару секунд и повтори"
 
-NEWS = [  # (вид, текст, изменение цены)
-    ("up", "🐋 Кит скупает {t}", 0.18), ("up", "🚀 {t} улетает на Луну", 0.12),
-    ("up", "📰 СМИ пишут про «{n}»", 0.08), ("up", "🐸 Мем про {t} залетел в тренд", 0.10),
-    ("down", "🐻 Паника: все сливают {t}", -0.14), ("down", "💀 Хакеры ломанули сервер «{n}»", -0.20),
-    ("down", "🧻 Слили скриншот убытков {t}", -0.07),
-    ("heat", "🔥 Сервер «{n}» перегрелся — аппетит ×1.8 на 5 минут", 0.0),
+# ключ: (название, описание, базовая цена $, максимум уровней). Покупает владелец из казны.
+UPGRADES = {
+    "eff": ("Охлаждение", "−8% аппетита сервера за уровень", 2000, 5),
+    "boost": ("Оверклок", "+5% к баффу дохода за уровень", 5000, 10),
+    "slots": ("Офис", "+3 места в компании за уровень", 3000, 8),
+}
+
+EVENTS = [  # (вид, текст)
+    ("heat", "🔥 Сервер «{n}» перегрелся — аппетит ×1.8 на 5 минут"),
+    ("grant", "🏛 Грант для «{n}»: +${v} в казну"),
+    ("surge", "🚀 Инвесторы заметили «{n}» — бафф дохода +20% на 5 минут"),
 ]
 
 def err(msg, status=400):
@@ -521,11 +537,24 @@ def clean(text, n):
     text = re.sub(r"[\x00-\x1f<>]", "", str(text))
     return re.sub(r"\s+", " ", text).strip()[:n]
 
+def valid_emoji(s):
+    """Любой эмодзи (в т.ч. составные: флаги, семьи, с оттенками кожи). Буквы/цифры/теги запрещены."""
+    s = str(s or "").strip()
+    if not s or len(s) > 16:
+        return False
+    ok_cats = {"So", "Sk", "Sm", "Cf", "Mn", "Me"}
+    if any(unicodedata.category(ch) not in ok_cats for ch in s):
+        return False
+    return any(unicodedata.category(ch) in ("So", "Sk") for ch in s)
+
 def mid(login):
     return hashlib.sha1(login.encode()).hexdigest()[:8]
 
 def uname(login):
     return (USERS.get(login) or {}).get("name") or "Игрок"
+
+def uava(login):
+    return (USERS.get(login) or {}).get("avatar") or ""
 
 def level_for_xp(xp):
     return int(math.sqrt(max(0.0, xp) / 50)) + 1
@@ -556,67 +585,78 @@ def co_of_user(user):
         user["co"]["id"] = None
     return c
 
+def upg(c, key):
+    try:
+        return int((c.get("up") or {}).get(key, 0))
+    except (TypeError, ValueError):
+        return 0
+
+def up_cost(key, lvl):
+    return int(UPGRADES[key][2] * 1.8 ** lvl)
+
 def co_level(c):
     return 1 + int(math.sqrt(max(0.0, c.get("cxp", 0)) / 400))
 
 def co_max(c):
-    return min(50, 10 + 2 * (co_level(c) - 1))
+    return min(60, 10 + 2 * (co_level(c) - 1) + 3 * upg(c, "slots"))
 
 def core_n(c):
     return sum(1 for x in c["cores"] if x)
 
-def co_buff(c):
-    return 1 + min(1.5, 0.10 * co_level(c) + 0.10 * core_n(c))
+def co_buff(c, now=None):
+    now = now or time.time()
+    b = 0.10 * co_level(c) + 0.10 * core_n(c) + 0.05 * upg(c, "boost")
+    if c.get("ad_until", 0) > now:
+        b += 0.15
+    if c.get("surge_until", 0) > now:
+        b += 0.20
+    return 1 + min(2.0, b)
 
 def co_log(c, text):
     c["feed"].insert(0, {"ts": int(time.time()), "t": text})
     del c["feed"][30:]
 
-def push_news(c, kind, text):
-    n = c["coin"]["news"]
-    n.insert(0, {"ts": int(time.time()), "k": kind, "t": text})
-    del n[12:]
-
 def appetite(c, now=None):
     """Доля токенов игрока, которую сервер съедает за минуту."""
     now = now or time.time()
     n = len(c["members"])
-    r = 0.002 * (1 + 0.12 * (n - 1)) * (1 + 0.6 * math.log10(max(1.0, c["coin"]["price"])))
+    # чем дороже монета компании, тем больше токенов ест сервер (но не наоборот)
+    price = float(c["px"]["price"])
+    r = 0.002 * (1 + 0.12 * (n - 1)) * min(4.0, max(0.7, price ** 0.3))
     if c.get("heat_until", 0) > now:
         r *= 1.8
     r *= max(0.25, 1 - 0.2 * core_n(c))
+    r *= max(0.3, 1 - 0.08 * upg(c, "eff"))
     return min(r, 0.05)
 
 def fair_price(c, now):
+    """«Справедливая» цена: растёт с участниками, скормленными токенами, ядрами, уровнем и улучшениями."""
     n = len(c["members"])
-    f = (1 + 0.2 * (n - 1)) * (1 + 0.8 * math.log10(1 + c["fed"] / 2e5)) \
-        * (1 + 0.22 * core_n(c)) * (1 + 0.01 * co_level(c))
+    f = (1 + 0.2 * (n - 1)) * (1 + 0.8 * math.log10(1 + c.get("fed", 0) / 2e5)) \
+        * (1 + 0.22 * core_n(c)) * (1 + 0.01 * co_level(c)) * (1 + 0.04 * upg(c, "boost"))
     if c.get("ad_until", 0) > now:
         f *= 1.3
+    if c.get("surge_until", 0) > now:
+        f *= 1.15
     return f
 
-def tick_company(c, now):
-    coin = c["coin"]
-    p = coin["price"]
-    fair = fair_price(c, now)
-    mom = coin.get("mom", 0.0) * 0.9 + random.gauss(0, 0.0035)
-    coin["mom"] = mom
-    p *= math.exp(0.004 * math.log(fair / p) + mom + random.gauss(0, 0.012))
-    if random.random() < 0.004:
-        kind, text, pct = random.choice(NEWS)
-        p *= 1 + pct
-        if kind == "heat":
-            c["heat_until"] = now + 300
-        push_news(c, kind, text.format(t=c["ticker"], n=c["name"]))
-    coin["price"] = round(min(1e9, max(0.01, p)), 6)
-    coin["h"].append(round(coin["price"], 4))
-    del coin["h"][:-180]
-    coin["n"] = coin.get("n", 0) + 1
-    if coin["n"] % 30 == 0:
-        coin["d"].append(round(coin["price"], 4))
-        del coin["d"][:-288]
+def tick_price(c, now):
+    """Как на реальном рынке: случайное блуждание + импульс + медленный возврат к справедливой цене."""
+    px = c["px"]
+    p = px["price"]
+    mom = px.get("mom", 0.0) * 0.9 + random.gauss(0, 0.0035)
+    px["mom"] = mom
+    p *= math.exp(0.004 * math.log(fair_price(c, now) / p) + mom + random.gauss(0, 0.012))
+    px["price"] = round(min(1e9, max(0.01, p)), 6)
+    px["h"].append(round(px["price"], 4))
+    del px["h"][:-180]
+    px["n"] = px.get("n", 0) + 1
+    if px["n"] % 30 == 0:
+        px["d"].append(round(px["price"], 4))
+        del px["d"][:-288]
 
 async def market_loop():
+    """Цена монет и случайные события компаний (перегрев, гранты, всплески)."""
     while True:
         await asyncio.sleep(TICK_SEC)
         try:
@@ -625,37 +665,75 @@ async def market_loop():
                 steps = max(1, min(60, int((now - c.get("tick", now)) // TICK_SEC)))
                 c["tick"] = now
                 for _ in range(steps):
-                    tick_company(c, now)
+                    tick_price(c, now)
+                if random.random() < 0.006 * steps:
+                    kind, text = random.choice(EVENTS)
+                    v = 0
+                    if kind == "heat":
+                        c["heat_until"] = now + 300
+                        c["px"]["price"] = round(max(0.01, c["px"]["price"] * 0.94), 6)
+                    elif kind == "surge":
+                        c["surge_until"] = now + 300
+                        c["px"]["price"] = round(c["px"]["price"] * 1.08, 6)
+                    else:
+                        v = 50 * co_level(c) * max(1, len(c["members"]))
+                        c["treasury"] = round(c["treasury"] + v, 2)
+                        c["px"]["price"] = round(c["px"]["price"] * 1.03, 6)
+                    co_log(c, text.format(n=c["name"], v=f"{v:,}"))
                 touch("co_" + c["id"])
         except Exception as e:
             print("MARKET ERROR:", repr(e))
 
-def coin_row(c):
-    coin = c["coin"]
-    base = (coin["d"] or coin["h"] or [coin["price"]])[0]
+def migrate_coins():
+    """Разовый перенос: монеты на руках превращаются в доллары (к выплате); у компаний цена хранится в c["px"]."""
+    prices = {cid: float((c.get("coin") or c.get("px") or {}).get("price", 1.0)) for cid, c in COMPANIES.items()}
+    for l, u in USERS.items():
+        if l.startswith("co_") or not isinstance(u.get("co"), dict):
+            continue
+        hold = u["co"].get("hold") or {}
+        if hold:
+            total = sum(min(250_000.0, float(h) * prices.get(cid, 0.0)) for cid, h in hold.items())
+            if total > 0:
+                u["co"]["pending"] = round(u["co"].get("pending", 0) + total, 2)
+            u["co"]["hold"], u["co"]["cost"] = {}, {}
+            touch(l)
+    for c in COMPANIES.values():
+        if "coin" in c:
+            c["px"] = c.pop("coin")
+        px = c.setdefault("px", {"price": 1.0, "h": [1.0], "d": [1.0], "mom": 0.0, "n": 0})
+        px.setdefault("h", [px["price"]]); px.setdefault("d", [px["price"]])
+        c.setdefault("up", {"eff": 0, "boost": 0, "slots": 0})
+        c.setdefault("surge_until", 0)
+        touch("co_" + c["id"])
+
+def co_row(c):
+    base = (c["px"]["d"] or c["px"]["h"] or [c["px"]["price"]])[0]
     return {"id": c["id"], "name": c["name"], "ticker": c["ticker"], "icon": c["icon"],
-            "price": coin["price"], "chg": round((coin["price"] / base - 1) * 100, 2) if base else 0,
             "members": len(c["members"]), "max": co_max(c), "lvl": co_level(c),
             "min_level": c["min_level"], "private": c["private"], "motto": c.get("motto", ""),
-            "cap": round(coin["price"] * (coin["supply"] + 1000 * len(c["members"])), 2),
-            "owner": uname(c["owner"]), "cores": core_n(c)}
+            "price": c["px"]["price"], "chg": round((c["px"]["price"] / base - 1) * 100, 2) if base else 0,
+            "score": int(c.get("cxp", 0)), "owner": uname(c["owner"]), "cores": core_n(c),
+            "buff": round(co_buff(c), 2)}
 
 def co_view(c, login):
     now = time.time()
-    v = coin_row(c)
-    mem = [{"id": mid(l), "name": uname(l), "lvl": level_of(USERS[l]) if l in USERS else 1,
+    v = co_row(c)
+    mem = [{"id": mid(l), "name": uname(l), "a": uava(l), "lvl": level_of(USERS[l]) if l in USERS else 1,
             "fed": m.get("fed", 0), "don": m.get("don", 0), "owner": l == c["owner"], "me": l == login}
            for l, m in c["members"].items()]
     mem.sort(key=lambda m: (not m["owner"], -m["fed"]))
     cl = co_level(c)
+    ups = [{"k": k, "n": u[0], "d": u[1], "lvl": upg(c, k), "max": u[3],
+            "cost": up_cost(k, upg(c, k)) if upg(c, k) < u[3] else 0} for k, u in UPGRADES.items()]
     v.update({
         "is_owner": login == c["owner"], "code": c["code"], "treasury": round(c["treasury"], 2),
         "cxp": int(c["cxp"]), "cxp_cur": 400 * (cl - 1) ** 2, "cxp_next": 400 * cl * cl,
         "fed": c["fed"], "appetite": round(appetite(c, now) * 100, 3),
         "heat": max(0, int(c.get("heat_until", 0) - now)), "ad": max(0, int(c.get("ad_until", 0) - now)),
-        "ad_cost": 200 * cl, "buff": co_buff(c), "mem": mem,
+        "surge": max(0, int(c.get("surge_until", 0) - now)), "h": c["px"]["h"], "d": c["px"]["d"],
+        "ad_cost": 200 * cl, "mem": mem, "ups": ups,
         "core_slots": [({"owner": uname(x["owner"]), "mine": x["owner"] == login} if x else None) for x in c["cores"]],
-        "feed": c["feed"][:15], "news": c["coin"]["news"][:6]})
+        "feed": c["feed"][:15]})
     return v
 
 def ok(user, login, d_usd=0.0, d_xp=0.0, **extra):
@@ -703,21 +781,19 @@ def remove_member(c, login, text):
     touch("co_" + c["id"])
 
 def disband(c):
-    """Закрыть компанию: ядра возвращаются, монету выкупают у держателей по 70% цены."""
-    price = c["coin"]["price"]
+    """Закрыть компанию: ядра возвращаются, 50% казны делится между участниками."""
     for x in c["cores"]:
         if x:
             give_core(x["owner"])
-    for l, u in list(USERS.items()):
-        if l.startswith("co_") or not isinstance(u.get("co"), dict):
-            continue
-        h = u["co"]["hold"].pop(c["id"], 0)
-        u["co"]["cost"].pop(c["id"], None)
-        if u["co"].get("id") == c["id"]:
+    members = list(c["members"])
+    share = round(c["treasury"] * 0.5 / len(members), 2) if members else 0.0
+    for l in members:
+        u = USERS.get(l)
+        if u and isinstance(u.get("co"), dict):
             u["co"]["id"] = None
-        if h > 0:
-            u["co"]["pending"] = round(u["co"].get("pending", 0) + h * price * 0.7, 2)
-        touch(l)
+            if share > 0:
+                u["co"]["pending"] = round(u["co"].get("pending", 0) + share, 2)
+            touch(l)
     key = "co_" + c["id"]
     USERS.pop(key, None)
     COMPANIES.pop(c["id"], None)
@@ -731,6 +807,9 @@ async def handle_co_sync(request):
         return err("Unauthorized", 401)
     co, now = user["co"], time.time()
     c = co_of_user(user)
+    if c and login not in c["members"]:  # рассинхрон — отвязываем игрока
+        co["id"] = None
+        c = None
     drain = 0.0
     if c:
         try:
@@ -758,16 +837,15 @@ async def handle_co_list(request):
     data, login, user = await co_ctx(request)
     if not login:
         return err("Unauthorized", 401)
-    mine, hold = user["co"].get("id"), user["co"]["hold"]
+    mine = user["co"].get("id")
     rows = []
     for c in COMPANIES.values():
-        if c["private"] and c["id"] != mine and hold.get(c["id"], 0) <= 0:
+        if c["private"] and c["id"] != mine:
             continue
-        r = coin_row(c)
-        r["hold"] = round(hold.get(c["id"], 0), 6)
+        r = co_row(c)
         r["mine"] = c["id"] == mine
         rows.append(r)
-    rows.sort(key=lambda r: -r["cap"])
+    rows.sort(key=lambda r: -r["score"])
     return web.json_response({"rows": rows[:60], "lvl": level_of(user)})
 
 async def handle_co_find(request):
@@ -778,19 +856,7 @@ async def handle_co_find(request):
     c = next((x for x in COMPANIES.values() if x["code"] == code), None)
     if not c:
         return err("Код не найден")
-    return web.json_response({"row": coin_row(c)})
-
-async def handle_co_coin(request):
-    data, login, user = await co_ctx(request)
-    if not login:
-        return err("Unauthorized", 401)
-    c = COMPANIES.get(data.get("id"))
-    if not c or (c["private"] and user["co"].get("id") != c["id"] and user["co"]["hold"].get(c["id"], 0) <= 0):
-        return err("Монета не найдена", 404)
-    coin, cid = c["coin"], c["id"]
-    return web.json_response({"row": coin_row(c), "h": coin["h"], "d": coin["d"], "news": coin["news"][:8],
-                              "hold": round(user["co"]["hold"].get(cid, 0), 6),
-                              "cost": round(user["co"]["cost"].get(cid, 0), 2)})
+    return web.json_response({"row": co_row(c)})
 
 async def handle_co_create(request):
     data, login, user = await co_ctx(request)
@@ -806,7 +872,10 @@ async def handle_co_create(request):
         return err("Тикер — от 3 букв (A–Z)")
     if any(c["ticker"] == ticker or c["name"].lower() == name.lower() for c in COMPANIES.values()):
         return err("Такое название или тикер уже заняты")
-    icon = data.get("icon") if data.get("icon") in ICONS else ICONS[0]
+    raw_icon = str(data.get("icon") or "").strip()
+    if raw_icon and not valid_emoji(raw_icon):
+        return err("Иконка должна быть эмодзи")
+    icon = raw_icon or ICONS[0]
     try:
         min_level = max(1, min(999, int(data.get("min_level", 1))))
     except (TypeError, ValueError):
@@ -829,14 +898,13 @@ async def handle_co_create(request):
     c = {"id": cid, "name": name, "ticker": ticker, "icon": icon, "owner": login, "created": now,
          "private": bool(data.get("private")), "min_level": min_level, "code": new_code(), "motto": "",
          "members": {login: {"joined": now, "fed": 0.0, "don": 0.0}}, "cores": [None] * CORE_SLOTS,
-         "treasury": 0.0, "cxp": 0.0, "fed": 0.0, "heat_until": 0, "ad_until": 0, "feed": [], "tick": now,
-         "coin": {"price": 1.0, "supply": 1000.0, "h": [1.0], "d": [1.0], "mom": 0.0, "n": 0, "news": []}}
+         "treasury": 0.0, "cxp": 0.0, "fed": 0.0, "heat_until": 0, "ad_until": 0, "surge_until": 0,
+         "up": {"eff": 0, "boost": 0, "slots": 0}, "feed": [], "tick": now,
+         "px": {"price": 1.0, "h": [1.0], "d": [1.0], "mom": 0.0, "n": 0}}
     USERS["co_" + cid] = c
     COMPANIES[cid] = c
     user["co"].update(id=cid, last=now)
-    user["co"]["hold"][cid] = 1000.0  # стартовый пакет основателя
-    user["co"]["cost"][cid] = 0.0
-    co_log(c, f"🎉 Компания «{name}» основана. Монета {ticker} вышла на биржу по $1.00")
+    co_log(c, f"🎉 Компания «{name}» ({ticker}) основана")
     touch(login)
     touch("co_" + cid)
     return ok(user, login, d_usd=d_usd, d_xp=500 if d_usd else 200)
@@ -908,6 +976,10 @@ async def handle_co_settings(request):
             pass
     if "motto" in data:
         c["motto"] = clean(data["motto"], 60)
+    if "icon" in data:
+        if not valid_emoji(data["icon"]):
+            return err("Иконка должна быть эмодзи")
+        c["icon"] = str(data["icon"]).strip()
     if data.get("regen"):
         c["code"] = new_code()
     touch("co_" + c["id"])
@@ -973,13 +1045,13 @@ async def handle_co_donate(request):
         x = math.floor(float(data.get("usd", 0)) * 100 + 1e-6) / 100
     except (TypeError, ValueError, OverflowError):
         x = 0
-    if not (x >= 1):
+    if not (x >= 1) or not math.isfinite(x):
         return err("Минимальный вклад — $1")
     if x > usd_of(user) + 0.001:
         return err("Не хватает долларов")
     dxp = round(min(x * 0.2, 2000), 2)
     add_usd(user, -x, dxp)
-    c["treasury"] += x
+    c["treasury"] = round(c["treasury"] + x, 2)
     c["cxp"] += x * 0.5
     c["members"][login]["don"] = c["members"][login].get("don", 0) + x
     co_log(c, f"💰 {uname(login)} вложил ${x:,.2f} в казну")
@@ -1020,84 +1092,227 @@ async def handle_co_ad(request):
         return err(f"В казне нужно ${cost}")
     c["treasury"] = round(c["treasury"] - cost, 2)
     c["ad_until"] = now + 600
-    c["coin"]["price"] = round(c["coin"]["price"] * 1.05, 6)
-    push_news(c, "up", f"📣 Рекламная кампания «{c['name']}»! Спрос на {c['ticker']} растёт 10 минут")
-    co_log(c, f"📣 Запущена реклама за ${cost}")
+    co_log(c, f"📣 Запущена реклама за ${cost}: бафф дохода +15% на 10 минут")
     touch("co_" + c["id"])
     return ok(user, login)
 
-async def handle_co_trade(request):
+async def handle_co_upgrade(request):
     data, login, user = await co_ctx(request)
     if not login:
         return err("Unauthorized", 401)
-    c, side = COMPANIES.get(data.get("id")), data.get("side")
-    if not c or side not in ("buy", "sell"):
-        return err("Монета не найдена")
-    if not isinstance(user.get("game"), dict):
+    c = co_of_user(user)
+    if not c or c["owner"] != login:
+        return err("Только владелец покупает улучшения")
+    key = data.get("k")
+    if key not in UPGRADES:
+        return err("Неизвестное улучшение")
+    lvl = upg(c, key)
+    if lvl >= UPGRADES[key][3]:
+        return err("Максимальный уровень")
+    cost = up_cost(key, lvl)
+    if c["treasury"] < cost:
+        return err(f"В казне нужно ${cost:,}")
+    c["treasury"] = round(c["treasury"] - cost, 2)
+    c.setdefault("up", {})[key] = lvl + 1
+    c["cxp"] += cost * 0.1
+    co_log(c, f"🛠 Улучшение «{UPGRADES[key][0]}» → ур. {lvl + 1}")
+    touch("co_" + c["id"])
+    return ok(user, login)
+
+# ---------- аватар (любой эмодзи) ----------
+async def handle_avatar(request):
+    data = await read_json(request)
+    login = get_login(data)
+    if not login:
+        return err("Unauthorized", 401)
+    a = str(data.get("avatar") or "").strip()
+    if a and not valid_emoji(a):
+        return err("Нужен эмодзи")
+    USERS[login]["avatar"] = a
+    touch(login)
+    return web.json_response({"avatar": a})
+
+# ---------- ежедневная награда ----------
+def day_str(ts):
+    return time.strftime("%Y-%m-%d", time.gmtime(ts))
+
+def daily_info(user):
+    d = user.setdefault("daily", {"last": "", "streak": 0})
+    now = time.time()
+    today, yest = day_str(now), day_str(now - 86400)
+    alive = d.get("last") in (today, yest)
+    return {"can": d.get("last") != today, "streak": d.get("streak", 0) if alive else 0}
+
+async def handle_daily(request):
+    login = get_login(await read_json(request))
+    if not login:
+        return err("Unauthorized", 401)
+    user = USERS[login]
+    d = user.setdefault("daily", {"last": "", "streak": 0})
+    now = time.time()
+    today, yest = day_str(now), day_str(now - 86400)
+    if d.get("last") == today:
+        return err("Награда уже получена — приходи завтра")
+    d["streak"] = d.get("streak", 0) + 1 if d.get("last") == yest else 1
+    d["last"] = today
+    streak = d["streak"]
+    usd = 100 * min(streak, 14)
+    user["co"]["pending"] = round(user["co"].get("pending", 0) + usd, 2)
+    item = None
+    if streak % 7 == 0:
+        user["inv"]["core"] = user["inv"].get("core", 0) + 1
+        item = "core"
+    touch(login)
+    return web.json_response({"usd": usd, "streak": streak, "item": item, "state": state_of(user)})
+
+# ---------- банк: 1% в час, до 24 часов накопления ----------
+BANK_RATE = 0.01
+
+def bank_cap(user):
+    return 5000 * level_of(user)
+
+def bank_accrue(user):
+    b = user.setdefault("bank", {"amt": 0.0, "t": time.time()})
+    now = time.time()
+    if b.get("amt", 0) > 0:
+        hrs = min(24.0, max(0.0, (now - b.get("t", now)) / 3600))
+        b["amt"] = round(b["amt"] * (1 + BANK_RATE * hrs), 2)
+    b["t"] = now
+    return b
+
+# ---------- кредит: берёшь в долг, растут проценты, бот напоминает ----------
+LOAN_RATE = 0.015           # 1.5% в час
+LOAN_GRACE = 24 * 3600      # через сутки долг считается просроченным, бот начинает напоминать
+REMIND_EVERY = 12 * 3600    # напоминания не чаще раза в 12 часов
+REMIND_MAX = 6
+
+def loan_cap(user):
+    return 2000 * level_of(user)
+
+def loan_of(user):
+    return user.setdefault("loan", {"debt": 0.0, "principal": 0.0, "t": 0, "since": 0, "last_remind": 0, "remind_n": 0})
+
+def loan_accrue(user):
+    ln, now = loan_of(user), time.time()
+    if ln.get("debt", 0) > 0:
+        hrs = max(0.0, (now - ln.get("t", now)) / 3600)
+        ln["debt"] = round(min(ln.get("principal", 0) * 5, ln["debt"] * (1 + LOAN_RATE * hrs)), 2)
+    ln["t"] = now
+    return ln
+
+def loan_clear(ln):
+    ln.update(debt=0.0, principal=0.0, since=0, last_remind=0, remind_n=0)
+
+def bank_json(user):
+    b, ln, now = user["bank"], loan_accrue(user), time.time()
+    held = ln["debt"] > 0
+    cap = loan_cap(user)
+    return {"amt": b["amt"], "cap": bank_cap(user), "rate": BANK_RATE * 100,
+            "loan": {"debt": ln["debt"], "cap": cap, "left": max(0, round(cap - ln["debt"], 2)),
+                     "rate": LOAN_RATE * 100, "age_h": round((now - ln["since"]) / 3600, 1) if held else 0,
+                     "overdue": bool(held and now - ln["since"] >= LOAN_GRACE), "grace_h": LOAN_GRACE // 3600}}
+
+def money_in(v):
+    try:
+        x = math.floor(float(v) * 100 + 1e-6) / 100
+    except (TypeError, ValueError, OverflowError):
+        return 0.0
+    return x if math.isfinite(x) else 0.0
+
+async def handle_bank(request):
+    data, login, user = await co_ctx(request)
+    if not login:
+        return err("Unauthorized", 401)
+    b = bank_accrue(user)
+    act, d_usd, d_xp, now = data.get("act", "info"), 0.0, 0.0, time.time()
+    if act in ("dep", "wd", "borrow", "repay") and not isinstance(user.get("game"), dict):
         return err(NO_SAVE)
-    coin, cid = c["coin"], c["id"]
-    hold, cost = user["co"]["hold"], user["co"]["cost"]
-    L = 3000 + 800 * len(c["members"]) + 0.5 * coin["supply"] * coin["price"]  # глубина рынка
-    if side == "buy":
-        try:
-            x = math.floor(float(data.get("usd", 0)) * 100 + 1e-6) / 100
-        except (TypeError, ValueError, OverflowError):
-            x = 0
-        if not (x >= 1):
-            return err("Минимальная покупка — $1")
+    if act == "dep":
+        x = money_in(data.get("usd", 0))
+        if x < 1:
+            return err("Минимальный вклад — $1")
         if x > usd_of(user) + 0.001:
             return err("Не хватает долларов")
-        dp = min(0.25, x / L * 0.35)
-        fee = round(x * TRADE_FEE, 2)
-        coins = (x - fee) / (coin["price"] * (1 + dp / 2))
-        hold[cid] = round(hold.get(cid, 0) + coins, 6)
-        cost[cid] = round(cost.get(cid, 0) + x, 2)
-        coin["supply"] = round(coin["supply"] + coins, 6)
-        coin["price"] = round(coin["price"] * (1 + dp), 6)
-        coin["h"][-1] = round(coin["price"], 4)
-        c["treasury"] += fee
-        c["cxp"] += fee * 5
-        add_usd(user, -x, 2)
-        touch(login)
-        touch("co_" + cid)
-        return ok(user, login, d_usd=-x, d_xp=2, got=round(coins, 6), price=coin["price"])
-    have = hold.get(cid, 0)
-    try:
-        coins = have if data.get("all") else min(have, float(data.get("coins", 0)))
-    except (TypeError, ValueError):
-        coins = 0
-    if not math.isfinite(coins) or coins <= 0 or coins * coin["price"] < 0.01:
-        return err("Нечего продавать")
-    dp = min(0.25, coins * coin["price"] / L * 0.35)
-    gross = coins * coin["price"] * (1 - dp / 2)
-    fee = gross * TRADE_FEE
-    net = math.floor((gross - fee) * 100) / 100
-    basis = cost.get(cid, 0) * (coins / have)
-    profit = net - basis
-    if have - coins < 1e-6:
-        hold.pop(cid, None)
-        cost.pop(cid, None)
-    else:
-        hold[cid] = round(have - coins, 6)
-        cost[cid] = round(max(0.0, cost.get(cid, 0) - basis), 2)
-    coin["supply"] = max(0.0, round(coin["supply"] - coins, 6))
-    coin["price"] = max(0.01, round(coin["price"] * (1 - dp), 6))
-    coin["h"][-1] = round(coin["price"], 4)
-    c["treasury"] += fee
-    c["cxp"] += fee * 5
-    dxp = round(2 + min(max(0.0, profit) * 4, 5000), 2)
-    add_usd(user, net, dxp)
+        if b["amt"] + x > bank_cap(user) + 0.001:
+            return err(f"Лимит вклада — ${bank_cap(user):,} (растёт с уровнем)")
+        b["amt"] = round(b["amt"] + x, 2)
+        add_usd(user, -x, 1)
+        d_usd, d_xp = -x, 1.0
+    elif act == "wd":
+        x = b["amt"]
+        if x < 0.01:
+            return err("На вкладе пусто")
+        b["amt"] = 0.0
+        add_usd(user, x, 0)
+        d_usd = x
+    elif act == "borrow":
+        ln = loan_accrue(user)
+        if ln["debt"] > 0 and now - ln["since"] >= LOAN_GRACE:
+            return err("Сначала верни просроченный долг")
+        x = money_in(data.get("usd", 0))
+        if x < 1:
+            return err("Минимальная сумма кредита — $1")
+        if ln["debt"] + x > loan_cap(user) + 0.001:
+            return err(f"Лимит кредита — ${loan_cap(user):,} (растёт с уровнем)")
+        if ln["debt"] <= 0:
+            ln.update(since=now, principal=0.0, last_remind=0, remind_n=0)
+        ln["debt"] = round(ln["debt"] + x, 2)
+        ln["principal"] = round(ln["principal"] + x, 2)
+        add_usd(user, x, 0)
+        d_usd = x
+    elif act == "repay":
+        ln = loan_accrue(user)
+        if ln["debt"] < 0.01:
+            return err("Долгов нет")
+        want = ln["debt"] if data.get("all") else money_in(data.get("usd", 0))
+        x = min(want, ln["debt"], math.floor(usd_of(user) * 100) / 100)
+        if x < 0.01:
+            return err("Не хватает долларов")
+        ln["debt"] = round(ln["debt"] - x, 2)
+        if ln["debt"] < 0.01:
+            loan_clear(ln)
+        add_usd(user, -x, 3)
+        d_usd, d_xp = -x, 3.0
     touch(login)
-    touch("co_" + cid)
-    return ok(user, login, d_usd=net, d_xp=dxp, got=net, profit=round(profit, 2), price=coin["price"])
+    return web.json_response({"ok": True, "d_usd": round(d_usd, 2), "d_xp": d_xp, "bank": bank_json(user)})
+
+async def debt_loop(app):
+    """Раз в 10 минут: если долг висит дольше суток — бот напоминает в личку (не чаще раза в 12 часов)."""
+    while True:
+        await asyncio.sleep(600)
+        try:
+            now = time.time()
+            for l, u in list(USERS.items()):
+                ln = u.get("loan") if not l.startswith("co_") else None
+                if not isinstance(ln, dict) or ln.get("debt", 0) < 0.01:
+                    continue
+                if now - ln.get("since", now) < LOAN_GRACE or now - ln.get("last_remind", 0) < REMIND_EVERY \
+                        or ln.get("remind_n", 0) >= REMIND_MAX:
+                    continue
+                try:
+                    chat = int(l[3:])
+                except ValueError:
+                    continue
+                loan_accrue(u)
+                ln["last_remind"], ln["remind_n"] = now, ln.get("remind_n", 0) + 1
+                touch(l)
+                days = max(1, int((now - ln["since"]) // 86400))
+                text = (f"⚠️ Долг в Нейробанке: ${ln['debt']:,.2f}\n"
+                        f"Он висит уже {days} дн., проценты капают — {LOAN_RATE * 100:g}% в час. "
+                        f"Верни долг, пока он не вырос 👇")
+                await call(app["s"], "sendMessage", chat_id=chat, text=text,
+                           reply_markup={"inline_keyboard": [[{"text": "🏦 Открыть банк", "web_app": {"url": WEBAPP_URL}}]]})
+        except Exception as e:
+            print("DEBT LOOP ERROR:", repr(e))
 
 CO_ROUTES = [("/api/co/sync", handle_co_sync), ("/api/co/list", handle_co_list), ("/api/co/find", handle_co_find),
-             ("/api/co/coin", handle_co_coin), ("/api/co/create", handle_co_create), ("/api/co/join", handle_co_join),
+             ("/api/co/create", handle_co_create), ("/api/co/join", handle_co_join),
              ("/api/co/leave", handle_co_leave), ("/api/co/disband", handle_co_disband),
              ("/api/co/settings", handle_co_settings), ("/api/co/kick", handle_co_kick),
              ("/api/co/core", handle_co_core), ("/api/co/donate", handle_co_donate),
              ("/api/co/dividends", handle_co_dividends), ("/api/co/ad", handle_co_ad),
-             ("/api/co/trade", handle_co_trade)]
+             ("/api/co/upgrade", handle_co_upgrade), ("/api/avatar", handle_avatar),
+             ("/api/daily", handle_daily), ("/api/bank", handle_bank)]
 
 # =========================
 # РЕФЕРАЛКА: $500 за каждого нового игрока по твоей ссылке
@@ -1158,8 +1373,9 @@ async def on_start(app):
     app["writer_task"] = asyncio.create_task(writer())
     app["market_task"] = asyncio.create_task(market_loop())
     app["s"] = ClientSession()
+    app["debt_task"] = asyncio.create_task(debt_loop(app))
     if TOKEN:
-        await call(app["s"], "setWebhook", url=f"{RENDER_URL}/webhook",
+        await call(app["s"], "setWebhook", url=f"{RENDER_URL}/webhook", secret_token=WEBHOOK_SECRET,
                    allowed_updates=["message", "pre_checkout_query"])
         me = await call(app["s"], "getMe")
         global BOT_NAME
@@ -1171,6 +1387,8 @@ async def on_cleanup(app):
         app["writer_task"].cancel()
     if "market_task" in app:
         app["market_task"].cancel()
+    if "debt_task" in app:
+        app["debt_task"].cancel()
     await flush()
     if _pool:
         await _pool.close()
