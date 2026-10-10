@@ -29,7 +29,7 @@ body.overheat .core{animation:shake .2s infinite}
 .coins{display:flex;gap:8px;margin:8px 0 10px}
 .coins>span{flex:1;display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:14px;background:var(--panel);border:1px solid var(--line);backdrop-filter:blur(10px);font-size:16px}
 .coins b{font:800 15px Unbounded,sans-serif;color:var(--neon)}
-.coins>span:last-child b{color:var(--star)}
+.coins>span:nth-of-type(2) b{color:var(--star)}
 .top{text-align:center;padding:6px 0 0}
 .bal{font:800 40px Unbounded,sans-serif;color:#fff;text-shadow:0 0 28px var(--glow),0 0 2px var(--glow);transition:text-shadow .4s;letter-spacing:-1px}
 .sub{color:var(--dim);font-size:13px}
@@ -196,6 +196,75 @@ h3{margin:16px 0 8px;font-size:14px;color:var(--dim);letter-spacing:.3px}
 .dstat b{display:block;font:800 16px Unbounded,sans-serif;color:var(--star);margin-top:2px}
 .pgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0}.pgrid>div{background:rgba(255,255,255,.05);border-radius:12px;padding:10px 12px}.pgrid small{display:block;opacity:.65;font-size:11px}.pgrid b{font-size:16px}#promoIn{flex:1;min-width:0;text-transform:uppercase}
 .nums{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin:10px 0}.nums button{padding:10px 0;border-radius:10px;border:2px solid transparent;color:#fff;font-weight:800;font-size:15px}.nums .r{background:#c0364a}.nums .b{background:#2a3147}.nums .g{background:#1f9d6e}.nums button.sel{border-color:#ffc93c;box-shadow:0 0 10px #ffc93c88}
+
+/* ---------- Уровень и компании ---------- */
+.cobtn{flex:0 0 auto;padding:8px 12px;border-radius:14px;border:1px solid var(--vio);background:linear-gradient(180deg,rgba(178,123,255,.28),rgba(178,123,255,.08));color:#fff;font:800 13px Manrope,sans-serif;box-shadow:0 0 16px rgba(178,123,255,.3)}
+.cobtn.on{background:linear-gradient(180deg,var(--vio),#7a4fd6);box-shadow:0 0 22px rgba(178,123,255,.6)}
+.lvl{display:flex;align-items:center;gap:8px;margin:-2px 0 8px;padding:6px 10px;border-radius:12px;background:var(--panel);border:1px solid var(--line);font-size:11px;color:var(--dim)}
+.lvl b{font:800 12px Unbounded,sans-serif;color:var(--vio);white-space:nowrap}
+.lvl .bar{flex:1;height:6px;border-radius:9px;background:rgba(255,255,255,.08);overflow:hidden}
+.lvl .bar i,.pb i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--vio),var(--neon));transition:width .4s}
+.pb{height:7px;border-radius:9px;background:rgba(255,255,255,.08);overflow:hidden;margin:8px 0 4px}
+.tag{display:inline-block;margin:4px 4px 0 0;padding:2px 8px;border-radius:99px;font:700 11px Manrope,sans-serif;background:rgba(255,255,255,.08);color:var(--dim)}
+.up{color:var(--neon)}.dn{color:var(--bad)}
+.wide{flex:1;min-width:0;width:auto!important}
+.slots{display:flex;gap:10px;margin:8px 0}
+.slot{flex:1;height:88px;border-radius:18px;border:1px dashed var(--line);background:rgba(255,255,255,.03);color:var(--dim);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font:700 11px Manrope,sans-serif;padding:4px;text-align:center}
+.slot i{font-size:30px;font-style:normal}
+.slot.full{border:1px solid var(--vio);background:radial-gradient(circle,rgba(178,123,255,.3),rgba(178,123,255,.05));color:#fff;box-shadow:0 0 18px rgba(178,123,255,.35)}
+.slot.full i{animation:spin 6s linear infinite}
+.price{font:800 28px Unbounded,sans-serif;letter-spacing:-1px}
+#coChart{display:block;width:100%;height:190px;border-radius:16px;border:1px solid var(--line);background:linear-gradient(180deg,#0d1226,#080b17)}
+.ticker{font:700 12px Manrope,sans-serif;color:var(--dim);padding:6px 2px;line-height:1.5}
+.rowx{cursor:pointer}
+.rowx:active{transform:scale(.985)}
+.hot-srv{border-color:var(--bad)!important;box-shadow:0 0 18px rgba(255,107,122,.3)}
+
+.hero{display:flex;gap:12px;align-items:center;padding:14px;border-radius:20px;border:1px solid rgba(178,123,255,.45);background:radial-gradient(120% 140% at 0% 0%,rgba(178,123,255,.32),transparent 60%),linear-gradient(135deg,#1b1f3a,#10142a);box-shadow:0 10px 30px #0008}
+.hero-ic{flex:0 0 62px;height:62px;border-radius:18px;display:grid;place-items:center;font-size:34px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.18);box-shadow:0 0 24px rgba(178,123,255,.45)}
+.hero-main{flex:1;min-width:0}
+.hero-name{font:800 16px Unbounded,sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hero-mt{color:var(--dim);font-size:12px;margin:2px 0 4px}
+.hero-px{text-align:right;font:800 16px Unbounded,sans-serif}
+.hero-xp{display:flex;align-items:center;gap:8px;margin:10px 2px 0;font-size:11px;color:var(--dim)}
+.hero-xp .pb{flex:1;margin:0}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:10px 0}
+.stat{padding:8px 2px;text-align:center;border-radius:14px;background:var(--panel);border:1px solid var(--line)}
+.stat i{display:block;font-style:normal;font-size:18px}
+.stat b{display:block;font:800 12px Unbounded,sans-serif;margin-top:2px}
+.stat small{color:var(--dim);font-size:10px}
+.seg{display:flex;gap:4px;padding:4px;margin:8px 0 12px;border-radius:16px;background:var(--panel);border:1px solid var(--line)}
+.seg button{flex:1;display:flex;flex-direction:column;align-items:center;gap:1px;padding:7px 2px;border:0;border-radius:12px;background:none;color:var(--dim);font:700 11px Manrope,sans-serif}
+.seg button i{font-style:normal;font-size:18px;filter:grayscale(1) opacity(.7)}
+.seg button.on{background:linear-gradient(180deg,rgba(178,123,255,.3),rgba(178,123,255,.08));color:#fff;box-shadow:inset 0 0 0 1px rgba(178,123,255,.45)}
+.seg button.on i{filter:none}
+.agrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.act{display:flex;flex-direction:column;align-items:center;gap:1px;padding:12px 4px;border-radius:16px;border:1px solid var(--line);background:linear-gradient(160deg,rgba(32,39,68,.85),rgba(18,22,40,.85));color:var(--text);transition:transform .15s}
+.act:active{transform:scale(.94)}
+.act i{font-size:26px;font-style:normal}
+.act b{font:800 12px Manrope,sans-serif}
+.act small{color:var(--dim);font-size:10px;min-height:12px}
+.act:disabled{opacity:.45}
+.wideact{width:100%;margin-top:10px;flex-direction:row;justify-content:center;gap:8px;color:var(--bad);border-style:dashed}
+.wideact i{font-size:18px}
+.intro{padding:16px;border-radius:20px;border:1px solid rgba(178,123,255,.4);background:radial-gradient(120% 140% at 100% 0%,rgba(93,242,196,.18),transparent 60%),linear-gradient(135deg,#1b1f3a,#10142a)}
+.intro-t{font:800 18px Unbounded,sans-serif}
+.intro-s{color:var(--dim);margin:4px 0 10px;font-size:13px}
+.perks{display:flex;flex-wrap:wrap;gap:6px}
+.perks span{padding:4px 10px;border-radius:99px;background:rgba(255,255,255,.08);font:700 11px Manrope,sans-serif}
+.pays{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.pay{display:flex;flex-direction:column;align-items:center;gap:2px;padding:14px 6px;border-radius:18px;border:1px solid var(--neon);background:linear-gradient(160deg,rgba(93,242,196,.18),rgba(93,242,196,.04));color:var(--text)}
+.pay.star{border-color:var(--star);background:linear-gradient(160deg,rgba(255,201,60,.2),rgba(255,201,60,.04))}
+.pay i{font-size:28px;font-style:normal}
+.pay b{font:800 13px Unbounded,sans-serif}
+.pay small{color:var(--dim);font-size:11px}
+.pay:disabled{opacity:.5;border-color:var(--line)}
+.help{margin:10px 0;border-radius:14px;border:1px solid var(--line);background:var(--panel);padding:10px 12px}
+.help summary{font-weight:800;font-size:13px}
+.help ul{margin:8px 0 0;padding-left:18px;color:var(--dim);font-size:12px;line-height:1.6}
+.gauge{height:12px;border-radius:99px;background:rgba(255,255,255,.08);overflow:hidden;margin:8px 0}
+.gauge i{display:block;height:100%;background:linear-gradient(90deg,var(--neon),var(--star),var(--bad));transition:width .4s}
+#proftabs button{font-size:12px;padding:9px 2px}
 </style>
 </head>
 <body>
@@ -203,7 +272,8 @@ h3{margin:16px 0 8px;font-size:14px;color:var(--dim);letter-spacing:.3px}
 <div class="toast" id="toast"></div>
 <div class="ev" id="ev" hidden><b id="evt"></b><small id="evd"></small><div class="cbar"><i id="evb"></i></div></div>
 <div class="wrap">
-  <div class="coins"><span>⚡ <b id="wT">0</b></span><span>💵 <b id="wU">0.00</b></span></div>
+  <div class="coins"><span>⚡ <b id="wT">0</b></span><span>💵 <b id="wU">0.00</b></span><button class="cobtn" id="coBtn">🏢 Компании</button></div>
+  <div class="lvl" id="lvl"><b id="lvN">LVL 1</b><div class="bar"><i id="lvB"></i></div><span id="lvT"></span></div>
 
   <div id="pFarm">
   <div class="top">
@@ -299,18 +369,111 @@ h3{margin:16px 0 8px;font-size:14px;color:var(--dim);letter-spacing:.3px}
       <p class="sub center">🍒🍒🍒×4 · 🍋×6 · 🔔×12 · 💎×25 · 7️⃣×50 · два 🍒 ×1.5</p>
     </div>
   </div>
+  <div id="pCo" hidden>
+    <div class="chips" id="coTabs"><button data-t="coMy" class="on">🏢 Компания</button><button data-t="coMkt">📈 Биржа</button></div>
+
+    <div id="coMy">
+      <div id="coIn" hidden>
+        <div id="coHead"></div>
+        <div class="stats" id="coStats"></div>
+        <div class="seg" id="coSub"><button data-t="coSubOv" class="on"><i>🏠</i>Обзор</button><button data-t="coSubSrv"><i>🖥</i>Сервер</button><button data-t="coSubMem"><i>👥</i>Люди</button><button data-t="coSubFeed"><i>📰</i>Лента</button></div>
+
+        <div id="coSubOv">
+          <div class="agrid">
+            <button class="act" id="coDonT"><i>💰</i><b>Вклад</b><small>в казну</small></button>
+            <button class="act" id="coInv"><i>🔗</i><b>Пригласить</b><small>друзей</small></button>
+            <button class="act" id="coTrade"><i>📈</i><b>Монета</b><small>график</small></button>
+            <button class="act" id="coAd"><i>📣</i><b>Реклама</b><small id="coAdS"></small></button>
+            <button class="act" id="coDiv"><i>💸</i><b>Дивиденды</b><small id="coDivS"></small></button>
+            <button class="act" id="coSet"><i>⚙️</i><b>Настройки</b><small>владелец</small></button>
+          </div>
+          <div id="coDonBox" class="row" style="margin-top:10px" hidden>
+            <input id="coDon" class="wide" type="number" min="1" step="1" placeholder="Сумма вклада, $"><button class="buy" id="coDonBtn">Вложить</button>
+            <small style="width:100%">Казна оплачивает рекламу и дивиденды. За вклад — опыт тебе и компании.</small>
+          </div>
+          <div id="coSetBox" hidden>
+            <div class="row" style="display:block;margin-top:10px">
+              <div class="chips" id="csPriv"><button data-p="0">🌐 Открытая</button><button data-p="1">🔒 Приватная</button></div>
+              <div class="acts" style="margin-top:8px"><span class="sub" style="align-self:center">Мин. уровень входа</span><input id="csLvl" type="number" min="1" value="1"></div>
+              <div class="acts"><input id="csMotto" class="wide" type="text" maxlength="60" placeholder="Девиз компании"></div>
+              <div class="acts"><button class="buy" id="csSave">Сохранить</button><button class="buy alt" id="csRegen">🔑 Новый код</button><button class="buy alt" id="csDisband" style="color:var(--bad)">💥 Распустить</button></div>
+            </div>
+          </div>
+          <details class="help"><summary>❓ Как всё это работает</summary><ul>
+            <li>Сервер компании каждую минуту «ест» долю токенов у каждого участника.</li>
+            <li>Съеденные токены растят цену монеты компании.</li>
+            <li>Взамен все участники получают бафф к доходу — он растёт с уровнем компании.</li>
+            <li>Монетами торгуют на бирже, комиссия 1% идёт в казну.</li>
+            <li>Ядра в слотах сервера снижают аппетит и усиливают монету.</li>
+          </ul></details>
+          <button class="act wideact" id="coLeave"><i>🚪</i><b>Выйти из компании</b></button>
+        </div>
+        <div id="coSubSrv" hidden><div id="coSrv"></div></div>
+        <div id="coSubMem" hidden><div id="coMem"></div></div>
+        <div id="coSubFeed" hidden><div id="coFeed"></div></div>
+      </div>
+
+      <div id="coOut">
+        <div class="intro">
+          <div class="intro-t">Своя компания</div>
+          <div class="intro-s">Сервер, своя крипта и бафф к доходу для всех участников. Одна компания на игрока.</div>
+          <div class="perks"><span>🖥 Сервер на 3 ядра</span><span>📈 Своя монета</span><span>⚡ Бафф дохода</span><span>🏆 Рост уровня</span></div>
+        </div>
+        <div class="seg" id="coOutTabs"><button data-t="coJoinPane" class="on"><i>🌐</i>Вступить</button><button data-t="coMakePane"><i>➕</i>Создать</button></div>
+
+        <div id="coJoinPane">
+          <div class="acts"><input id="coCode" class="wide" type="text" maxlength="8" placeholder="Код приглашения" style="text-transform:uppercase"><button class="buy" id="coCodeBtn">Вступить</button></div>
+          <h3>🌐 Открытые компании</h3>
+          <div id="coOpen"></div>
+        </div>
+
+        <div id="coMakePane" hidden>
+          <div id="cfPrev"></div>
+          <div class="row" style="display:block;margin-top:10px">
+            <div class="acts"><input id="cfName" class="wide" type="text" maxlength="20" placeholder="Название (3–20)"><input id="cfTick" type="text" maxlength="5" placeholder="TICK" style="width:92px;text-transform:uppercase"></div>
+            <div class="chips" id="cfIcons" style="flex-wrap:wrap"></div>
+            <div class="chips" id="cfPriv" style="margin-top:8px"><button data-p="0" class="on">🌐 Открытая</button><button data-p="1">🔒 Приватная</button></div>
+            <div class="acts" style="margin-top:8px"><span class="sub" style="align-self:center">Мин. уровень входа</span><input id="cfLvl" type="number" min="1" value="1"></div>
+          </div>
+          <h3>Чем оплатить открытие</h3>
+          <div class="pays"><button class="pay" id="cfUsd"></button><button class="pay star" id="cfStar"></button></div>
+          <p class="sub">После открытия ты получишь 1000 монет компании и станешь владельцем.</p>
+        </div>
+      </div>
+    </div>
+
+    <div id="coMkt" hidden>
+      <div id="coList"></div>
+      <div id="coCoin" hidden>
+        <button class="buy alt" id="coBack" style="width:100%;margin-bottom:8px">← Все монеты</button>
+        <div id="coCHead"></div>
+        <div class="chips" id="coTf" style="margin:8px 0"><button data-tf="h" class="on">30 мин</button><button data-tf="d">24 часа</button></div>
+        <canvas id="coChart"></canvas>
+        <div class="ticker" id="coNews"></div>
+        <div id="coPos"></div>
+        <h3>Купить</h3>
+        <div class="acts"><input id="trUsd" class="wide" type="number" min="1" step="1" placeholder="Сумма, $"><button class="buy alt" data-qb="10">$10</button><button class="buy alt" data-qb="100">$100</button><button class="buy alt" data-qb="max">Макс</button></div>
+        <div class="acts"><button class="buy" id="trBuy">Купить</button></div>
+        <h3>Продать</h3>
+        <div class="acts"><button class="buy alt" data-qs="0.25">25%</button><button class="buy alt" data-qs="0.5">50%</button><button class="buy alt" data-qs="1">Всё</button></div>
+        <p class="sub">Комиссия 1% идёт в казну компании. Крупные сделки двигают цену.</p>
+      </div>
+    </div>
+  </div>
+
   <div id="pProf" hidden>
     <div class="row"><div class="ic" style="--c:#b27bff">👤</div><div class="info"><b id="pName"></b><small id="pSub"></small></div></div>
-    <div class="chips" id="proftabs"><button data-t="pSecStats" class="on">Статистика</button><button data-t="pSecTop">🏆 Лидерборд</button><button data-t="pSecBag">🎒 Инвентарь</button></div>
+    <div class="chips" id="proftabs"><button data-t="pSecStats" class="on">Статистика</button><button data-t="pSecTop">🏆 Лидерборд</button><button data-t="pSecBag">🎒 Инвентарь</button><button data-t="pSecRef">🎁 Друзья</button></div>
     <div id="pSecStats">
     <div id="pstats"></div>
     <h3>🎟 Промокод</h3>
     <div class="acts"><input id="promoIn" type="text" placeholder="Введи промокод" maxlength="40" autocomplete="off"><button class="buy" id="promoBtn">Активировать</button></div>
     </div>
     <div id="pSecTop" hidden>
-    <div class="chips" id="topchips"><button data-k="tok" class="on">⚡ Токены</button><button data-k="usd">💵 Доллары</button></div>
+    <div class="chips" id="topchips"><button data-k="tok" class="on">⚡ Токены</button><button data-k="usd">💵 Доллары</button><button data-k="xp">⭐ Уровень</button></div>
     <div id="toplist"></div>
     </div>
+    <div id="pSecRef" hidden></div>
     <div id="pSecBag" hidden>
     <div id="bag"></div>
     </div>
@@ -359,16 +522,19 @@ const DEF = {
 };
 const MILES = [1e2,1e3,1e4,1e5,1e6,1e7,1e9,1e12];
 const KEY = "neurofarm2";
-const def = () => ({t:0,run:0,tot:0,g:GENS.map(()=>0),tap:0,cr:0,oh:0,ev:0,w:0,bu:0,bm:1,fr:0,im:1,iu:0,auto:0,off:0,perm:0,ach:0,usd:0,autoU:0,off24:0,vip:0,taps:0,last:Date.now()});
+const def = () => ({t:0,run:0,tot:0,g:GENS.map(()=>0),tap:0,cr:0,oh:0,ev:0,w:0,bu:0,bm:1,fr:0,im:1,iu:0,auto:0,off:0,perm:0,ach:0,usd:0,autoU:0,off24:0,vip:0,taps:0,xp:0,dl:"",ds:0,last:Date.now()});
 let s = Object.assign(def(), JSON.parse(localStorage.getItem(KEY)||"{}"));
 const loadedLast = JSON.parse(localStorage.getItem(KEY)||"{}").last || 0;
 let cloudChecked = false;
 if(s.g.length < GENS.length) s.g = GENS.map((_,i) => s.g[i]||0);
+let coBuff = 1, my = null;
+function lvlOf(x){return Math.floor(Math.sqrt(Math.max(0,+x||0)/50))+1}
+let lastL = lvlOf(s.xp);
 
 const $ = id => document.getElementById(id);
 const fmt = n => {const u=["","K","M","B","T","Qa","Qi"];let i=0;while(n>=1000&&i<u.length-1){n/=1000;i++}return (i?n.toFixed(n<10?2:n<100?1:0):Math.floor(n))+u[i]};
 const boostOn = () => s.bu > Date.now(), frOn = () => s.fr > Date.now(), itemOn = () => s.iu > Date.now();
-const mult = () => (1 + 0.1 * s.w) * (s.perm ? 2 : 1) * (s.vip ? 1.5 : 1) * (boostOn() ? s.bm : 1) * (frOn() ? 7 : 1) * (itemOn() ? s.im : 1);
+const mult = () => coBuff * (1 + 0.1 * s.w) * (s.perm ? 2 : 1) * (s.vip ? 1.5 : 1) * (boostOn() ? s.bm : 1) * (frOn() ? 7 : 1) * (itemOn() ? s.im : 1);
 const ps = () => GENS.reduce((a,g,i) => a + s.g[i] * g[2], 0) * mult();
 const tapPow = () => (1 + s.tap) * mult();
 const gCost = i => Math.ceil(GENS[i][1] * Math.pow(1.15, s.g[i]));
@@ -410,7 +576,7 @@ $("items").innerHTML = Object.entries(ITEMS).map(([k,v])=>`<div class="row"><div
 function bind(sel, ids, cb){$(sel).addEventListener("click", e => {const btn = e.target.closest("button[data-t]"); if(!btn) return; const t = btn.dataset.t; [...e.currentTarget.children].forEach(b => b.classList.toggle("on", b === btn)); ids.forEach(i => $(i).hidden = i !== t); cb && cb(t)})}
 bind("tabs", ["farm","shop"]);
 bind("shopchips", ["ups","don"]);
-bind("proftabs", ["pSecStats","pSecTop","pSecBag"], t => {if(t === "pSecTop") loadTop(); else if(t === "pSecBag") rBag()});
+bind("proftabs", ["pSecStats","pSecTop","pSecBag","pSecRef"], t => {if(t === "pSecTop") loadTop(); else if(t === "pSecBag") rBag(); else if(t === "pSecRef") loadRef()});
 
 // ---------- Серверные запросы ----------
 let st = {inv:{}, next:0, rate:1000000}, srv = {};
@@ -439,7 +605,7 @@ const refresh = async () => { const r = await api("/me"); if(!r || r.error) retu
 function adoptCloud(g){
   if(g && g.last > loadedLast){
     s = Object.assign(def(), g); if(s.g.length < GENS.length) s.g = GENS.map((_,i) => s.g[i]||0);
-    shown = s.t; offlineIncome(); save(); toast("☁️ Прогресс загружен с сервера");
+    lastL = lvlOf(s.xp); shown = s.t; offlineIncome(); save(); toast("☁️ Прогресс загружен с сервера");
   } else syncStats();
 }
 
@@ -450,7 +616,7 @@ $("chest").onclick = async () => {
   if(!r) return;
   const d = DEF[r.item];
   if(!d) return;
-  toast(`📦 Выпало: ${d.e} ${d.n} (${RAR[d.r][0]})`);
+  toast(`📦 Выпало: ${d.e} ${d.n} (${RAR[d.r][0]})`); s.xp += 15;
   const [x,y] = coreXY(); burst(x, y, 70, RAR[d.r][1], 9); hap("success","notificationOccurred");
 };
 
@@ -464,7 +630,7 @@ function rStats(){
   const u = tg?.initDataUnsafe?.user, name = u ? [u.first_name, u.last_name].filter(Boolean).join(" ") : "Игрок";
   $("pName").textContent = (s.vip ? "👑 " : "") + name;
   $("pSub").textContent = (u?.username ? "@" + u.username + " · " : "") + "ID " + (srv.id || u?.id || "—") + (s.vip ? " · VIP" : "");
-  const rows = [["⚡ Токены", fmt(s.t)], ["💵 Доллары", "$" + (s.usd||0).toFixed(2)], ["📈 Всего заработано", fmt(s.tot)], ["🧠 Весов", s.w],
+  const rows = [["⚡ Токены", fmt(s.t)], ["💵 Доллары", "$" + (s.usd||0).toFixed(2)], ["📈 Всего заработано", fmt(s.tot)], ["🧠 Весов", s.w], ["⭐ Уровень", lvlOf(s.xp)], ["🏢 Компания", my ? esc(my.name) : "—"],
     ["👆 Тапов", fmt(s.taps||0)], ["🏗 Генераторов", s.g.reduce((a,b) => a+b, 0)], ["🏆 Достижений", s.ach + "/" + MILES.length], ["🎟 Промокодов", srv.promos || 0]];
   $("pstats").innerHTML = '<div class="pgrid">' + rows.map(([k,v]) => `<div><small>${k}</small><b>${v}</b></div>`).join("") + '</div>'
     + ((srv.promo_list||[]).length ? '<p class="sub">Активированные промокоды: ' + srv.promo_list.map(p => esc(p.code) + (p.usd ? ` (+$${p.usd})` : p.tokens ? ` (+${fmt(p.tokens)})` : "")).join(", ") + '</p>' : "");
@@ -476,8 +642,8 @@ setInterval(syncStats, 15000);
 async function loadTop(){
   await syncStats();
   const r = await api("/top"); if(!r || r.error) return;
-  const tok = topKind === "tok", list = tok ? r.tokens : r.usd, me = tok ? r.me_tokens : r.me_usd;
-  const val = v => tok ? fmt(v) : "$" + v.toFixed(2);
+  const key = {tok:"tokens", usd:"usd", xp:"xp"}[topKind], list = r[key], me = r["me_" + key];
+  const val = v => topKind === "tok" ? fmt(v) : topKind === "usd" ? "$" + v.toFixed(2) : "LVL " + lvlOf(v);
   $("toplist").innerHTML = (list.map((e,i) => `<div class="row"><div class="info"><b>${["🥇","🥈","🥉"][i] || (i+1) + "."} ${esc(e.name)}${e.me ? " (ты)" : ""}</b></div><b>${val(e.v)}</b></div>`).join("") || '<p class="sub">Пока пусто</p>')
     + (me > list.length ? `<p class="sub">Твоё место: ${me}</p>` : "");
 }
@@ -504,7 +670,7 @@ $("promoBtn").onclick = async () => {
   const r = await act("/promo", {code}); if(!r) return;
   if(r.usd) s.usd = r2(s.usd + r.usd);
   if(r.tokens) s.t += r.tokens;
-  srv.promos = r.promos; (srv.promo_list = srv.promo_list || []).push({code:r.code, usd:r.usd, tokens:r.tokens}); $("promoIn").value = "";
+  s.xp += 25; srv.promos = r.promos; (srv.promo_list = srv.promo_list || []).push({code:r.code, usd:r.usd, tokens:r.tokens}); $("promoIn").value = "";
   toast("🎟 Промокод активирован: " + (r.usd ? "+$" + r.usd : "+" + fmt(r.tokens) + " токенов"));
   hap("success","notificationOccurred"); const [x,y] = coreXY(); burst(x, y, 60, "#ffc93c", 9); save(); rStats();
 };
@@ -522,7 +688,7 @@ function evStart(){
 function evEnd(win){
   clearInterval(ev.i); document.body.classList.remove("overheat"); $("ev").hidden = true;
   const k = 1 + 0.25 * s.ev;
-  if(win){hap("success","notificationOccurred");
+  if(win){s.xp += 40; hap("success","notificationOccurred");
     if(ev.type === "heat"){s.fr = Math.max(Date.now(), s.fr) + 15000 * k; toast("🧊 Ядро остыло! Безумие ×7 на " + Math.round(15*k) + " сек")}
     else{const v = Math.max(ps()*90, tapPow()*60) * k; gain(v); toast("🐞 Баги пойманы: +" + fmt(v))}
     const [x,y] = coreXY(); burst(x, y, 70, "#ffc93c", 9)}
@@ -571,7 +737,7 @@ function ui(){
     if(ev.n >= ev.goal) evEnd(true); else if(Date.now() > ev.end) evEnd(false)}
   else if(page==="pFarm" && Date.now() > evNext) evStart();
 
-  while(s.ach < MILES.length && s.tot >= MILES[s.ach]){toast(`🏆 Заработано ${fmt(MILES[s.ach])} токенов!`); hap("success","notificationOccurred"); const [x,y] = coreXY(); burst(x, y, 50, "#ffc93c", 8); s.ach++}
+  while(s.ach < MILES.length && s.tot >= MILES[s.ach]){toast(`🏆 Заработано ${fmt(MILES[s.ach])} токенов!`); hap("success","notificationOccurred"); const [x,y] = coreXY(); burst(x, y, 50, "#ffc93c", 8); s.ach++; s.xp += 120}
 }
 
 // ---------- офлайн-доход ----------
@@ -581,15 +747,15 @@ offlineIncome();
 
 let prev = performance.now(), saveT = 0;
 setInterval(()=>{const n = performance.now(), dt = Math.min((n-prev)/1000, 1); prev = n;
-  gain(ps()*dt); if(autoOn()) gain(3*tapPow()*dt);
-  ui(); saveT += dt; if(saveT > 2){saveT = 0; save()}}, 100);
+  gain(ps()*dt); if(autoOn()) gain(3*tapPow()*dt); s.xp += dt/60;
+  ui(); lvlUI(); saveT += dt; if(saveT > 2){saveT = 0; save()}}, 100);
 document.addEventListener("visibilitychange", () => {save(); if(document.hidden) syncStats()});
 
 // ---------- тап ----------
 const core = $("core");
 function fly(x, y, txt, crit){const f = document.createElement("div"); f.className = "fly" + (crit ? " crit" : ""); f.textContent = txt; f.style.left = (x-20+(Math.random()*40-20)) + "px"; f.style.top = (y-30) + "px"; document.body.appendChild(f); setTimeout(() => f.remove(), 900)}
 $("tap").addEventListener("pointerdown", e => {
-  s.taps++; combo++; comboT = Date.now(); if(ev?.type === "heat") ev.n++;
+  s.taps++; s.xp += 0.02; combo++; comboT = Date.now(); if(ev?.type === "heat") ev.n++;
   const crit = Math.random() < 0.08 + 0.01*s.cr;
   const v = tapPow() * (1 + Math.min(combo,50)*0.02) * (crit ? 5 : 1); gain(v);
   core.animate([{transform:"scale(.9)"}, {transform:"scale(1)"}], {duration:140, easing:"ease-out"});
@@ -612,14 +778,14 @@ setTimeout(spawnGold, 10000);
 
 // ---------- покупки ----------
 $("gens").addEventListener("click", e => {const b = e.target.closest("button[data-g]"); if(!b) return; const i = b.dataset.g; const c = gCost(+i);
-  if(s.t >= c){s.t -= c; s.g[i]++; hap("selection","selectionChanged");
+  if(s.t >= c){s.t -= c; s.g[i]++; s.xp += 3; hap("selection","selectionChanged");
     const row = $("r"+i); row.classList.remove("pop"); void row.offsetWidth; row.classList.add("pop");
     const [x,y] = coreXY(); burst(x, y, 18, GENS[i][3], 6)}});
-$("ups").addEventListener("click", e => {const b = e.target.closest("button[data-u]"); if(!b) return; const u = UP.find(x => x.k === b.dataset.u); if(!u) return; const c = uCost(u); if(s[u.k] < u.m && s.t >= c){s.t -= c; s[u.k]++; hap("light"); const [x,y] = coreXY(); burst(x, y, 14, "#5df2c4", 5)}});
+$("ups").addEventListener("click", e => {const b = e.target.closest("button[data-u]"); if(!b) return; const u = UP.find(x => x.k === b.dataset.u); if(!u) return; const c = uCost(u); if(s[u.k] < u.m && s.t >= c){s.t -= c; s[u.k]++; s.xp += 8; hap("light"); const [x,y] = coreXY(); burst(x, y, 14, "#5df2c4", 5)}});
 
 // ---------- престиж ----------
 $("prestige").onclick = () => {const pg = prestigeGain(); if(pg < 1) return;
-  const go = () => {const keep = {w:s.w+pg, auto:s.auto, off:s.off, perm:s.perm, bu:s.bu, bm:s.bm, im:s.im, iu:s.iu, cr:s.cr, oh:s.oh, ev:s.ev, tot:s.tot, ach:s.ach, usd:s.usd, autoU:s.autoU, off24:s.off24, vip:s.vip, taps:s.taps}; s = Object.assign(def(), keep); shown = 0;
+  const go = () => {const keep = {w:s.w+pg, auto:s.auto, off:s.off, perm:s.perm, bu:s.bu, bm:s.bm, im:s.im, iu:s.iu, cr:s.cr, oh:s.oh, ev:s.ev, tot:s.tot, ach:s.ach, usd:s.usd, autoU:s.autoU, off24:s.off24, vip:s.vip, taps:s.taps, xp:s.xp + 150 + 20*pg, dl:s.dl, ds:s.ds}; s = Object.assign(def(), keep); shown = 0;
     const [x,y] = coreXY(); burst(x, y, 90, "#b27bff", 10); toast(`🧠 Новая модель: +${pg} весов`)};
   tg?.showConfirm ? tg.showConfirm(`Сбросить ферму и получить ${pg} весов?`, ok => ok && go()) : (confirm("Сбросить ферму?") && go())};
 
@@ -644,8 +810,14 @@ $("items").addEventListener("click", async e => {
 let page="pFarm";
 function evCancel(){if(ev){clearInterval(ev.i); document.body.classList.remove("overheat"); $("ev").hidden=true; ev=null}
   document.querySelectorAll(".bug,.gold").forEach(x=>x.remove()); evNext=Date.now()+30000}
-bind("nav",["pFarm","pConv","pFun","pProf"],t=>{page=t; if(t==="pProf"){rBag(); rStats(); if(!$("pSecTop").hidden) loadTop()} if(t!=="pFarm") evCancel(); else evNext=Math.max(evNext,Date.now()+15000);
-  if(t!=="pFun") crLeave(); else if(game==="crash"&&!cr) crDraw(0,1,"idle")});
+const PAGES=["pFarm","pConv","pFun","pProf","pCo"];
+function go(t){
+  [...$("nav").children].forEach(b=>b.classList.toggle("on",b.dataset.t===t)); PAGES.forEach(i=>$(i).hidden=i!==t); $("coBtn").classList.toggle("on",t==="pCo");
+  page=t; if(t==="pProf"){rBag(); rStats(); if(!$("pSecTop").hidden) loadTop()} if(t!=="pFarm") evCancel(); else evNext=Math.max(evNext,Date.now()+15000);
+  if(t!=="pFun") crLeave(); else if(game==="crash"&&!cr) crDraw(0,1,"idle");
+  if(t==="pCo") coEnter(); scrollTo(0,0)}
+$("nav").addEventListener("click",e=>{const b=e.target.closest("button[data-t]"); if(b) go(b.dataset.t)});
+$("coBtn").onclick=()=>go(page==="pCo"?"pFarm":"pCo");
 const R=()=>st.rate||1e6, r2=n=>Math.round(n*100)/100, fl2=n=>Math.floor(n*100+1e-9)/100;
 function cvInfo(){const a=fl2(+$("t2u").value||0), b=fl2(+$("u2t").value||0);
   $("t2uI").textContent = a>0 ? `Спишется ${fmt(a*R())} токенов` : ""; $("u2tI").textContent = b>0 ? `Получите ${fmt(b*R())} токенов` : ""}
@@ -654,7 +826,7 @@ $("pConv").addEventListener("click",e=>{const el=e.target.closest("button"); if(
   if(d.max==="t2u") $("t2u").value=fl2(s.t/R());
   else if(d.max==="u2t") $("u2t").value=fl2(s.usd);
   else if(d.go==="t2u"){const a=fl2(+$("t2u").value||0), c=a*R(); if(a<0.01||s.t<c) return toast("⚠️ Не хватает токенов");
-    s.t-=c; s.usd=r2(s.usd+a); toast(`💵 +$${a.toFixed(2)}`); hap("success","notificationOccurred"); save()}
+    s.t-=c; s.usd=r2(s.usd+a); s.xp+=Math.min(a*2,500); toast(`💵 +$${a.toFixed(2)}`); hap("success","notificationOccurred"); save()}
   else if(d.go==="u2t"){const b=fl2(+$("u2t").value||0); if(b<0.01||s.usd<b) return toast("⚠️ Не хватает долларов");
     s.usd=r2(s.usd-b); s.t+=b*R(); toast(`⚡ +${fmt(b*R())} токенов`); hap("success","notificationOccurred"); save()}
   cvInfo()});
@@ -671,7 +843,7 @@ function takeBet(){let b=+$("bet").value; b=cur==="t"?Math.floor(b):fl2(b);
   if(!(b>0)||b>bal()){toast("⚠️ Неверная ставка или не хватает средств"); return 0} pay(-b); return b}
 // m — множитель выплаты (0 = проигрыш)
 function settle(b,m){
-  const a=m>0?payout(b,m):0; if(a>0) pay(a);
+  const a=m>0?payout(b,m):0; if(a>0) pay(a); s.xp+=2+Math.min(Math.max(0,cur==="u"?a-b:(a-b)/R())*5,20000);
   const g=$("gres");
   if(a>b){g.textContent=`✅ ×${m}: +${money(a-b)}`; g.className="gres win"; burst(W/2,H/2,50,"#ffc93c",8); hap("success","notificationOccurred")}
   else if(a>0){g.textContent=`↩️ Возврат ${money(a)}`; g.className="gres"; hap("light")}
@@ -864,6 +1036,268 @@ $("pFun").addEventListener("click",e=>{const el=e.target.closest("button"); if(!
   else if(d.dgo) diceRoll()});
 $("pFun").addEventListener("input",e=>{ if(e.target.id==="dSl"||e.target.id==="bet") diceInfo()});
 addEventListener("resize",()=>{ if(page==="pFun"&&game==="crash"&&!cr) crDraw(0,1,"idle")});
+
+// ======================================================
+// ---------- Уровень ----------
+// ======================================================
+const TITLES = ["Стажёр","Кликер","Майнер","Техно-бро","Инженер","Архитектор","Нейромаг","Миллионер","Магнат","Легенда"];
+const titleOf = L => TITLES[Math.min(TITLES.length-1, Math.floor((L-1)/5))];
+function lvlUI(){
+  const L = lvlOf(s.xp), a = 50*(L-1)*(L-1), b = 50*L*L;
+  $("lvN").textContent = "LVL " + L;
+  $("lvB").style.width = Math.max(0, Math.min(100, (s.xp-a)/(b-a)*100)) + "%";
+  $("lvT").textContent = titleOf(L) + " · " + Math.floor(s.xp-a) + "/" + (b-a);
+  if(L > lastL){ if(lastL){ toast(`🎉 Уровень ${L}! ${titleOf(L)}`); hap("success","notificationOccurred"); const [x,y] = coreXY(); burst(x, y, 60, "#b27bff", 9) } lastL = L }
+}
+(function daily(){
+  const d = new Date().toISOString().slice(0,10); if(s.dl === d) return;
+  const y = new Date(Date.now()-864e5).toISOString().slice(0,10);
+  s.ds = s.dl === y ? Math.min(30, (s.ds||0)+1) : 1; s.dl = d;
+  const x = 25*Math.min(s.ds, 10); s.xp += x; setTimeout(() => toast(`📅 Серия ${s.ds} дн.: +${x} опыта`), 1500);
+})();
+
+// ======================================================
+// ---------- Компании, сервер, крипта ----------
+// ======================================================
+const CO_ICONS = ["🏢","🚀","🧠","🐉","🦄","🔥","🌐","⚡","🛰️","🐸","💎","🧬"];
+const CREATE_USD = 1e6;
+let coTab = "coMy", coCoin = null, coTf = "h", coData = null, coList = null, coLic = 0, coBot = "", coBusy = false, lastCoSync = 0;
+let cfIcon = CO_ICONS[0], cfPriv = 0, csPriv = 0, firstSync = true;
+let joinCode = (new URLSearchParams(location.search).get("join") || (tg?.initDataUnsafe?.start_param || "").replace(/^co_/, "")).toUpperCase().replace(/[^A-Z0-9]/g, "");
+
+const usdf = n => "$" + (Math.abs(n) >= 1e5 ? fmt(n) : n.toLocaleString("en-US", {minimumFractionDigits:2, maximumFractionDigits:2}));
+const pf = p => "$" + (p >= 100 ? p.toFixed(2) : p >= 1 ? p.toFixed(3) : p.toFixed(4));
+const chgH = c => `<span class="${c >= 0 ? "up" : "dn"}">${c >= 0 ? "▲" : "▼"} ${Math.abs(c).toFixed(2)}%</span>`;
+const fc = n => n >= 1000 ? fmt(n) : n.toFixed(n < 10 ? 3 : 1);
+const hhmm = ts => new Date(ts*1000).toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"});
+
+function setCo(co){ my = co || null; coBuff = my ? my.buff : 1 }
+
+async function coAct(p, b = {}, withState = true){
+  if(withState) save();
+  const r = await api("/co" + p, {...b, ...(withState ? {state:s} : {})});
+  if(!r || r.error){ toast("⚠️ " + (r?.error || "Сетевая ошибка")); return null }
+  if(r.d_usd) s.usd = r2(Math.max(0, s.usd + r.d_usd));
+  if(r.d_xp) s.xp += r.d_xp;
+  if(r.inv) st.inv = r.inv;
+  if(r.co !== undefined) setCo(r.co);
+  save(); if(page === "pCo") coRender();
+  return r;
+}
+
+async function coSync(force){
+  if(coBusy) return;
+  if(!force && page !== "pCo" && Date.now() - lastCoSync < 20000) return;
+  coBusy = true; lastCoSync = Date.now();
+  const r = await api("/co/sync", {t:s.t, state:s});
+  coBusy = false;
+  if(!r || r.error) return;
+  if(r.drain > 0) s.t = Math.max(0, s.t - r.drain);
+  if(r.pending > 0){ s.usd = r2(s.usd + r.pending); toast(`💸 Тебе выплатили ${usdf(r.pending)}`); hap("success","notificationOccurred") }
+  coLic = r.lic || 0; coBot = r.bot || coBot; setCo(r.co);
+  if(page === "pCo") coRender();
+  if(firstSync){ firstSync = false; if(joinCode && !my){ const c = joinCode; joinCode = ""; coInvite(c) } }
+}
+setInterval(() => coSync(false), 6000);
+setTimeout(() => coSync(true), 2500);
+
+async function coInvite(code){
+  const r = await api("/co/find", {code});
+  if(!r || r.error) return toast("⚠️ " + (r?.error || "Приглашение недействительно"));
+  go("pCo");
+  const row = r.row, msg = `Вступить в «${row.name}» (${row.members}/${row.max}, от LVL ${row.min_level})?`;
+  const run = async yes => { if(!yes) return; if(await coAct("/join", {code})){ toast(`🏢 Ты в компании «${row.name}»!`); const [x,y] = coreXY(); burst(x, y, 60, "#b27bff", 9) } };
+  tg?.showConfirm ? tg.showConfirm(msg, run) : run(confirm(msg));
+}
+
+// ---------- рендер ----------
+function coRender(){
+  $("coIn").hidden = !my; $("coOut").hidden = !!my;
+  if(my) renderMy(); else renderOut();
+}
+function renderMy(){
+  const c = my, pr = Math.max(0, Math.min(100, (c.cxp-c.cxp_cur)/(c.cxp_next-c.cxp_cur)*100));
+  $("coHead").innerHTML = `<div class="hero"><div class="hero-ic">${c.icon}</div><div class="hero-main"><div class="hero-name">${esc(c.name)} <span class="cnt">${esc(c.ticker)}</span></div><div class="hero-mt">${esc(c.motto || "Без девиза")}</div>
+    <span class="tag">${c.private ? "🔒 приватная" : "🌐 открытая"}</span><span class="tag">от LVL ${c.min_level}</span><span class="tag">🔑 ${esc(c.code)}</span></div>
+    <div class="hero-px">${pf(c.price)}<br>${chgH(c.chg)}</div></div>
+    <div class="hero-xp"><b style="color:var(--vio)">LVL ${c.lvl}</b><div class="pb"><i style="width:${pr}%"></i></div><span>${c.cxp}/${c.cxp_next}</span></div>`;
+  $("coStats").innerHTML = [["👥", `${c.members}/${c.max}`, "участники"], ["💰", usdf(c.treasury), "казна"], ["⚡", "×" + c.buff.toFixed(2), "бафф дохода"], ["🖥", c.appetite.toFixed(2) + "%", "аппетит/мин"]]
+    .map(([i, v, l]) => `<div class="stat"><i>${i}</i><b>${v}</b><small>${l}</small></div>`).join("");
+  ["coAd", "coDiv", "coSet"].forEach(id => $(id).hidden = !c.is_owner);
+  $("coAdS").textContent = c.ad ? "идёт " + mmss(c.ad*1000) : usdf(c.ad_cost); $("coAd").disabled = !!c.ad;
+  $("coDivS").textContent = usdf(c.treasury);
+
+  const mine = s.t * c.appetite / 100, filled = c.core_slots.filter(Boolean).length, gp = Math.min(100, c.appetite / 5 * 100);
+  $("coSrv").innerHTML = `<div class="row ${c.heat ? "hot-srv" : ""}" style="display:block"><div style="display:flex;justify-content:space-between;align-items:center"><b>🖥 Нагрузка сервера</b><span class="cnt">${c.heat ? "🔥 перегрев " + mmss(c.heat*1000) : "штатно"}</span></div>
+    <div class="gauge"><i style="width:${gp}%"></i></div>
+    <small>Ест ${c.appetite.toFixed(2)}% токенов каждого участника в минуту. С тебя сейчас ≈ ${fmt(mine)}/мин · всего скормлено ${fmt(c.fed)}</small></div>
+    <h3>🌀 Ядра сервера (${filled}/3)</h3>
+    <div class="slots">${c.core_slots.map((x, i) => x ? `<button class="slot full" data-take="${i}"><i>🌀</i>${esc(x.owner)}${x.mine ? " (ты)" : ""}</button>` : `<button class="slot" data-put="1"><i>＋</i>ядро</button>`).join("")}</div>
+    <p class="sub">Каждое ядро: −20% аппетита, +10% к баффу дохода, +22% к цене монеты. Ядра падают из ящиков 📦 · у тебя: ${(st.inv || {}).core || 0}. Нажми на своё ядро, чтобы забрать его.</p>`;
+
+  $("coMem").innerHTML = c.mem.map(m => `<div class="row"><div class="ic" style="--c:#4da3ff">${m.owner ? "👑" : "👤"}</div><div class="info"><b>${esc(m.name)}${m.me ? " (ты)" : ""}</b><small>LVL ${m.lvl} · скормил ${fmt(m.fed)} · вклад ${usdf(m.don)}</small></div>${c.is_owner && !m.owner ? `<button class="buy alt" data-kick="${m.id}" style="min-width:0">✖</button>` : ""}</div>`).join("");
+  const news = (c.news || []).map(n => ({ts:n.ts, t:n.t})), feed = [...c.feed, ...news].sort((a, b) => b.ts - a.ts).slice(0, 14);
+  $("coFeed").innerHTML = feed.map(f => `<div class="row" style="padding:8px 12px"><div class="info"><small>${hhmm(f.ts)}</small> ${esc(f.t)}</div></div>`).join("") || '<p class="sub">Пока тихо</p>';
+}
+function renderPrev(){
+  const n = $("cfName").value.trim() || "Название", t = ($("cfTick").value.trim() || "TICK").toUpperCase();
+  $("cfPrev").innerHTML = `<div class="hero"><div class="hero-ic">${cfIcon}</div><div class="hero-main"><div class="hero-name">${esc(n)} <span class="cnt">${esc(t)}</span></div><div class="hero-mt">Так компания будет выглядеть на бирже</div>
+    <span class="tag">${cfPriv ? "🔒 приватная" : "🌐 открытая"}</span><span class="tag">от LVL ${+$("cfLvl").value || 1}</span></div><div class="hero-px">$1.000</div></div>`;
+}
+function renderOut(){
+  const lvl = lvlOf(s.xp);
+  $("cfUsd").innerHTML = `<i>💵</i><b>$1 000 000</b><small>у тебя ${usdf(s.usd)}</small>`; $("cfUsd").disabled = s.usd < CREATE_USD;
+  $("cfStar").innerHTML = `<i>⭐</i><b>${coLic > 0 ? "Лицензия ×" + coLic : "250 звёзд"}</b><small>${coLic > 0 ? "создать бесплатно" : "купить лицензию"}</small>`;
+  renderPrev();
+  const rows = (coList?.rows || []).filter(r => !r.private);
+  $("coOpen").innerHTML = rows.map(r => `<div class="row"><div class="ic" style="--c:#b27bff">${r.icon}</div><div class="info"><b>${esc(r.name)} <span class="cnt">${esc(r.ticker)}</span></b>
+    <small>👥 ${r.members}/${r.max} · от LVL ${r.min_level} · ${pf(r.price)} ${r.chg >= 0 ? "▲" : "▼"}${Math.abs(r.chg).toFixed(1)}%${r.motto ? " · " + esc(r.motto) : ""}</small></div>
+    <button class="buy" data-join="${r.id}" ${lvl < r.min_level || r.members >= r.max ? "disabled" : ""}>${lvl < r.min_level ? "LVL " + r.min_level : "Вступить"}</button></div>`).join("") || '<p class="sub">Открытых компаний пока нет — стань первым 😉</p>';
+}
+async function coLoadList(){
+  const r = await api("/co/list"); if(!r || r.error) return; coList = r;
+  if(page === "pCo"){ if(coTab === "coMkt") renderList(); else if(!my) renderOut() }
+}
+function renderList(){
+  const rows = coList?.rows || [], pv = rows.reduce((a, r) => a + (r.hold || 0) * r.price, 0);
+  $("coList").innerHTML = `<div class="stats" style="grid-template-columns:1fr 1fr"><div class="stat"><i>💼</i><b>${usdf(pv)}</b><small>твой портфель</small></div><div class="stat"><i>🪙</i><b>${rows.length}</b><small>монет на бирже</small></div></div>` + (rows.map(r => `<div class="row rowx" data-open="${r.id}"><div class="ic" style="--c:#ffc93c">${r.icon}</div><div class="info"><b>${esc(r.ticker)} <span class="cnt">${esc(r.name)}</span></b>
+    <small>👥 ${r.members} · LVL ${r.lvl}${r.hold > 0 ? ` · у тебя ${fc(r.hold)}` : ""}${r.mine ? " · твоя" : ""}</small></div><div style="text-align:right"><b>${pf(r.price)}</b><br>${chgH(r.chg)}</div></div>`).join("")) || '<p class="sub">Монет пока нет — создай компанию и запусти первую.</p>';
+}
+
+// ---------- монета ----------
+async function coLoadCoin(){
+  if(!coCoin) return;
+  const r = await api("/co/coin", {id:coCoin});
+  if(!r || r.error){ if(r?.error) toast("⚠️ " + r.error); coCoin = null; showCoin(); return }
+  coData = r; renderCoin();
+}
+function showCoin(){
+  $("coList").hidden = !!coCoin; $("coCoin").hidden = !coCoin;
+  if(coCoin) coLoadCoin(); else coLoadList();
+}
+function renderCoin(){
+  const r = coData, row = r.row, arr = coTf === "h" ? r.h : r.d;
+  $("coCHead").innerHTML = `<div class="row"><div class="ic" style="--c:#ffc93c">${row.icon}</div><div class="info"><b>${esc(row.ticker)} <span class="cnt">${esc(row.name)}</span></b><small>👥 ${row.members} · LVL ${row.lvl} · ядер ${row.cores}/3 · кап. ${usdf(row.cap)}</small></div>
+    <div style="text-align:right"><div class="price">${pf(row.price)}</div>${chgH(row.chg)}</div></div>`;
+  drawChart(arr);
+  $("coNews").innerHTML = (r.news || []).slice(0, 4).map(n => `<div><small>${hhmm(n.ts)}</small> ${esc(n.t)}</div>`).join("");
+  const val = r.hold * row.price, avg = r.hold > 0 ? r.cost / r.hold : 0, pnl = val - r.cost;
+  $("coPos").innerHTML = r.hold > 0 ? `<div class="pgrid"><div><small>Твои монеты</small><b>${fc(r.hold)}</b></div><div><small>Стоимость</small><b>${usdf(val)}</b></div><div><small>Средняя цена</small><b>${avg ? pf(avg) : "бесплатно"}</b></div><div><small>Прибыль</small><b class="${pnl >= 0 ? "up" : "dn"}">${pnl >= 0 ? "+" : "−"}${usdf(Math.abs(pnl))}</b></div></div>` : '<p class="sub">У тебя нет этих монет.</p>';
+}
+function drawChart(arr){
+  const c = $("coChart"), d = Math.min(devicePixelRatio || 1, 3), w = c.clientWidth || 320, h = 190;
+  if(c.width !== Math.round(w*d)){ c.width = Math.round(w*d); c.height = h*d }
+  const x = c.getContext("2d"); x.setTransform(d, 0, 0, d, 0, 0); x.clearRect(0, 0, w, h);
+  if(arr.length < 2){ x.fillStyle = "#8d96b2"; x.font = "13px Manrope"; x.textAlign = "center"; x.fillText("Копим историю цен…", w/2, h/2); return }
+  let mn = Math.min(...arr), mx = Math.max(...arr);
+  if(mx - mn < mn*0.01){ const m = (mx+mn)/2; mn = m*0.995; mx = m*1.005 }
+  const padL = 10, padR = 58, top = 14, bot = 14, X = i => padL + (w-padL-padR)*i/(arr.length-1), Y = v => h-bot - (h-top-bot)*(v-mn)/(mx-mn);
+  const up = arr[arr.length-1] >= arr[0], col = up ? "#5df2c4" : "#ff6b7a";
+  x.font = "10px Manrope"; x.textAlign = "right"; x.strokeStyle = "rgba(255,255,255,.07)"; x.fillStyle = "#8d96b2"; x.lineWidth = 1;
+  for(let i = 0; i < 4; i++){ const v = mn + (mx-mn)*i/3, yy = Y(v); x.beginPath(); x.moveTo(padL, yy); x.lineTo(w-padR, yy); x.stroke(); x.fillText(pf(v), w-6, yy+3) }
+  x.beginPath(); arr.forEach((v, i) => i ? x.lineTo(X(i), Y(v)) : x.moveTo(X(i), Y(v)));
+  x.lineTo(X(arr.length-1), h-bot); x.lineTo(X(0), h-bot); x.closePath();
+  const g = x.createLinearGradient(0, 0, 0, h); g.addColorStop(0, col + "55"); g.addColorStop(1, col + "00"); x.fillStyle = g; x.fill();
+  x.beginPath(); arr.forEach((v, i) => i ? x.lineTo(X(i), Y(v)) : x.moveTo(X(i), Y(v)));
+  x.strokeStyle = col; x.lineWidth = 2.5; x.shadowColor = col; x.shadowBlur = 10; x.stroke(); x.shadowBlur = 0;
+  const lx = X(arr.length-1), ly = Y(arr[arr.length-1]); x.beginPath(); x.arc(lx, ly, 4, 0, 6.283); x.fillStyle = "#fff"; x.fill();
+}
+
+// ---------- события ----------
+bind("coSub", ["coSubOv", "coSubSrv", "coSubMem", "coSubFeed"]);
+bind("coOutTabs", ["coJoinPane", "coMakePane"], t => { if(t === "coMakePane") renderPrev() });
+bind("coTabs", ["coMy", "coMkt"], t => { coTab = t; if(t === "coMkt") showCoin(); else { coLoadList(); coRender() } });
+$("cfIcons").innerHTML = CO_ICONS.map((e, i) => `<button data-ic="${e}" class="${i ? "" : "on"}" style="flex:0 0 14%">${e}</button>`).join("");
+$("cfIcons").addEventListener("click", e => { const b = e.target.closest("button[data-ic]"); if(!b) return; cfIcon = b.dataset.ic; [...$("cfIcons").children].forEach(x => x.classList.toggle("on", x === b)); renderPrev() });
+$("cfPriv").addEventListener("click", e => { const b = e.target.closest("button[data-p]"); if(!b) return; cfPriv = +b.dataset.p; [...$("cfPriv").children].forEach(x => x.classList.toggle("on", x === b)); renderPrev() });
+["cfName", "cfTick", "cfLvl"].forEach(i => $(i).addEventListener("input", renderPrev));
+$("csPriv").addEventListener("click", e => { const b = e.target.closest("button[data-p]"); if(!b) return; csPriv = +b.dataset.p; [...$("csPriv").children].forEach(x => x.classList.toggle("on", x === b)) });
+$("coTf").addEventListener("click", e => { const b = e.target.closest("button[data-tf]"); if(!b) return; coTf = b.dataset.tf; [...$("coTf").children].forEach(x => x.classList.toggle("on", x === b)); if(coData) renderCoin() });
+
+const ask = (msg, fn) => tg?.showConfirm ? tg.showConfirm(msg, ok => ok && fn()) : (confirm(msg) && fn());
+function createBody(pay){ return {name:$("cfName").value, ticker:$("cfTick").value, icon:cfIcon, private:cfPriv, min_level:+$("cfLvl").value || 1, pay} }
+async function createCo(pay){
+  const r = await coAct("/create", createBody(pay)); if(!r) return;
+  toast("🎉 Компания основана! Тебе выдано 1000 монет"); hap("success","notificationOccurred"); burst(W/2, H/2, 90, "#b27bff", 10); coLoadList();
+}
+async function buyLicense(){
+  const r = await api("/invoice", {item:"company_license"});
+  if(!r || !r.link) return toast("⚠️ Ошибка создания счета");
+  if(tg?.openInvoice) tg.openInvoice(r.link, x => { if(x === "paid"){ afterPay("company_license"); [1500, 4000, 9000].forEach(d => setTimeout(() => coSync(true), d)) } else if(x === "failed") tg.showAlert("Оплата отменена") });
+  else toast("Открой игру через Telegram, чтобы оплатить");
+}
+
+$("pCo").addEventListener("click", async e => {
+  const open = e.target.closest("[data-open]");
+  if(open && !e.target.closest("button")){ coCoin = open.dataset.open; showCoin(); return }
+  const b = e.target.closest("button"); if(!b) return; const d = b.dataset, id = b.id;
+  if(d.put){ if(!((st.inv||{}).core > 0)) return toast("🌀 Нужно Ядро сингулярности — оно выпадает из ящиков"); const r = await coAct("/core", {act:"put"}, false); if(r) toast("🌀 Ядро подключено к серверу") }
+  else if(d.take != null){ const r = await coAct("/core", {act:"take", slot:+d.take}, false); if(r) toast("⏏ Ядро вернулось в инвентарь") }
+  else if(d.kick) ask("Исключить участника?", () => coAct("/kick", {uid:d.kick}, false))
+  else if(d.join){ const r = await coAct("/join", {id:d.join}); if(r){ toast("🏢 Добро пожаловать в компанию!"); burst(W/2, H/2, 60, "#b27bff", 9) } }
+  else if(d.qb){ $("trUsd").value = d.qb === "max" ? fl2(s.usd) : d.qb }
+  else if(d.qs){ coSell(+d.qs) }
+  else if(id === "coCodeBtn"){ const code = $("coCode").value.trim(); if(!code) return toast("⚠️ Введи код"); const r = await coAct("/join", {code}); if(r){ toast("🏢 Ты в компании!"); $("coCode").value = "" } }
+  else if(id === "cfUsd") createCo("usd")
+  else if(id === "cfStar") coLic > 0 ? createCo("stars") : buyLicense()
+  else if(id === "coDonBtn"){ const v = +$("coDon").value; if(!(v >= 1)) return toast("⚠️ Минимум $1"); const r = await coAct("/donate", {usd:v}); if(r){ $("coDon").value = ""; toast(`💰 Вложено ${usdf(v)} в казну`); hap("success","notificationOccurred") } }
+  else if(id === "coDonT") $("coDonBox").hidden = !$("coDonBox").hidden
+  else if(id === "coAd"){ const r = await coAct("/ad", {}, false); if(r){ toast("📣 Реклама запущена!"); burst(W/2, H/2, 60, "#ffc93c", 9) } }
+  else if(id === "coDiv"){ const r = await coAct("/dividends", {}, false); if(r) toast("💸 Дивиденды выплачены участникам") }
+  else if(id === "coTrade"){ coTab = "coMkt"; [...$("coTabs").children].forEach(x => x.classList.toggle("on", x.dataset.t === "coMkt")); $("coMy").hidden = true; $("coMkt").hidden = false; coCoin = my.id; showCoin() }
+  else if(id === "coInv"){
+    const txt = `Го в мою компанию «${my.name}» в Нейроферме! Код: ${my.code}`, link = coBot ? `https://t.me/${coBot}?start=co_${my.code}` : "";
+    if(link && tg?.openTelegramLink) tg.openTelegramLink("https://t.me/share/url?url=" + encodeURIComponent(link) + "&text=" + encodeURIComponent(txt));
+    else { try{ navigator.clipboard?.writeText(txt) }catch(_){} toast("📋 Код скопирован: " + my.code) }
+  }
+  else if(id === "coSet"){
+    $("coSetBox").hidden = !$("coSetBox").hidden;
+    if(!$("coSetBox").hidden){ csPriv = my.private ? 1 : 0; [...$("csPriv").children].forEach(x => x.classList.toggle("on", +x.dataset.p === csPriv)); $("csLvl").value = my.min_level; $("csMotto").value = my.motto || "" }
+  }
+  else if(id === "csSave"){ const r = await coAct("/settings", {private:!!csPriv, min_level:+$("csLvl").value || 1, motto:$("csMotto").value}, false); if(r){ toast("✅ Настройки сохранены"); $("coSetBox").hidden = true } }
+  else if(id === "csRegen"){ const r = await coAct("/settings", {regen:1}, false); if(r) toast("🔑 Новый код приглашения: " + my.code) }
+  else if(id === "csDisband") ask("Распустить компанию? Монету выкупят у держателей по 70% цены.", async () => { if(await coAct("/disband", {}, false)){ toast("💥 Компания распущена"); $("coSetBox").hidden = true } })
+  else if(id === "coLeave") ask(my.members <= 1 ? "Ты один — компания будет закрыта. Выйти?" : "Выйти из компании?", async () => { if(await coAct("/leave", {}, false)) toast("🚪 Ты вышел из компании") })
+  else if(id === "coBack"){ coCoin = null; showCoin() }
+  else if(id === "trBuy"){
+    const v = +$("trUsd").value; if(!(v >= 1)) return toast("⚠️ Минимум $1");
+    const r = await coAct("/trade", {id:coCoin, side:"buy", usd:v}); if(r){ toast(`🟢 Куплено ${fc(r.got)} монет`); hap("success","notificationOccurred"); coLoadCoin() }
+  }
+});
+async function coSell(frac){
+  if(!coData || !(coData.hold > 0)) return toast("⚠️ Нечего продавать");
+  const r = await coAct("/trade", {id:coCoin, side:"sell", coins:coData.hold*frac, all:frac >= 1}); if(!r) return;
+  toast(`🔴 Продано: +${usdf(r.got)} (${r.profit >= 0 ? "+" : "−"}${usdf(Math.abs(r.profit))})`); hap("success","notificationOccurred");
+  if(r.profit > 0) burst(W/2, H/2, 50, "#5df2c4", 8); coLoadCoin();
+}
+setInterval(() => { if(page !== "pCo" || document.hidden) return; if(coTab === "coMkt"){ coCoin ? coLoadCoin() : coLoadList() } else if(!my) coLoadList() }, 5000);
+addEventListener("resize", () => { if(page === "pCo" && coData && coCoin) drawChart(coTf === "h" ? coData.h : coData.d) });
+
+function coEnter(){
+  coRender();
+  if(coTab === "coMkt") showCoin(); else if(!my) coLoadList();
+  coSync(true);
+}
+
+// ---------- Рефералка ----------
+let refData = null;
+async function loadRef(){ const r = await api("/ref"); if(!r || r.error) return; refData = r; rRef() }
+function rRef(){
+  const r = refData; if(!r) return;
+  $("pSecRef").innerHTML = `<div class="intro"><div class="intro-t">Приглашай друзей</div><div class="intro-s">За каждого нового игрока, который зайдёт в игру по твоей ссылке, ты получаешь ${usdf(r.reward)}.</div></div>
+    <div class="stats" style="grid-template-columns:1fr 1fr"><div class="stat"><i>👥</i><b>${r.count}</b><small>приглашено</small></div><div class="stat"><i>💵</i><b>${usdf(r.earned)}</b><small>заработано</small></div></div>`
+    + (r.link ? `<div class="acts"><button class="buy" data-ref="share">📤 Поделиться</button><button class="buy alt" data-ref="copy">📋 Копировать</button></div><p class="sub" style="user-select:text;word-break:break-all">${esc(r.link)}</p>`
+                : '<p class="sub">Ссылка пока недоступна — сервер ещё не узнал имя бота. Попробуй через минуту.</p>')
+    + '<p class="sub">Награда начисляется только за новых игроков, которые впервые открыли игру по твоей ссылке.</p><h3>Твои приглашённые</h3>'
+    + (r.list.map(x => `<div class="row" style="padding:8px 12px"><div class="info"><b>${esc(x.name)}</b><small>${new Date(x.ts*1000).toLocaleDateString()}</small></div><b class="up">+${usdf(r.reward)}</b></div>`).join("") || '<p class="sub">Пока никого — отправь ссылку другу 😉</p>');
+}
+$("pSecRef").addEventListener("click", e => {
+  const b = e.target.closest("button[data-ref]"); if(!b || !refData?.link) return;
+  const txt = `Го играть в Нейроферму! Бери бонусы и зарабатывай 🧠`;
+  if(b.dataset.ref === "share" && tg?.openTelegramLink) tg.openTelegramLink("https://t.me/share/url?url=" + encodeURIComponent(refData.link) + "&text=" + encodeURIComponent(txt));
+  else { try{ navigator.clipboard?.writeText(refData.link) }catch(_){} toast("📋 Ссылка скопирована") }
+});
+
 
 mnRender(); mnUI(); diceInfo();
 refresh(); ui();
