@@ -24,7 +24,7 @@ TOKEN = os.environ.get("BOT_TOKEN", "")  # ОБЯЗАТЕЛЬНО через п�
 PROMO_URL = os.environ.get("PROMO_URL", "https://raw.githubusercontent.com/proman890k-wq/Kojsanislux/refs/heads/main/promo.txt")
 WEBAPP_URL = "https://proman890k-wq.github.io/Kojsanislux/"
 RENDER_URL = os.environ.get("RENDER_EXTERNAL_URL", "https://game-2gla.onrender.com")
-DATABASE_URL = os.environ.get("DATABASE_URL", "")  # Postgres: Neon / Supabase / Render
+DATABASE_URL = os.environ.get("DATABASE_URL", "postgresql://postgres.lamguerjqzpckajjpvnv:ProManjjkl.123@aws-0-ap-northeast-1.pooler.supabase.com:5432/postgres")  # Postgres: Neon / Supabase / Render
 WEBHOOK_SECRET = hashlib.sha256(("wh:" + TOKEN).encode()).hexdigest()[:48] if TOKEN else ""
 ADMIN_IDS = {int(x) for x in re.findall(r"\d+", os.environ.get("ADMIN_IDS", ""))}  # Telegram ID админов (через запятую)
 ADMIN_KEY = os.environ.get("ADMIN_KEY", "")  # ключ для консольной команды и /admin/vip
@@ -198,6 +198,8 @@ async def cors(request, handler):
     else:
         try:
             response = await handler(request)
+        except web.HTTPException as e:  # 404/405 и т.п. — не ошибка сервера (сканеры, боты)
+            response = web.json_response({"error": e.reason}, status=e.status)
         except Exception as e:
             print("SERVER ERROR:", repr(e))
             response = web.json_response({"error": "Internal server error"}, status=500)
