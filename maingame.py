@@ -151,7 +151,8 @@ def new_user():
             "loan": {"debt": 0.0, "principal": 0.0, "t": 0, "since": 0, "last_remind": 0, "remind_n": 0},
             "co": {"id": None, "hold": {}, "cost": {}, "last": 0, "pending": 0.0},
             "rig": {"slots": 4, "own": {}, "eq": [None] * 4},
-            "ref": {"by": None, "paid": True, "count": 0, "earned": 0.0, "names": []}}
+            "ref": {"by": None, "paid": True, "count": 0, "earned": 0.0, "names": []},
+            "xfer": []}
 
 def norm(user):
     for k, v in new_user().items():
@@ -1750,6 +1751,90 @@ async def handle_rig(request):
 
 CO_ROUTES.append(("/api/rig", handle_rig))
 CO_ROUTES.append(("/api/market", handle_market))
+
+# =========================
+# ПЕРЕВОДЫ ДОЛЛАРОВ ПО ID
+# Игрок вводит Telegram ID получателя (виден в Меню → Моя статистика / в банке). Доллары списываются у
+# отправителя сразу, а получателю падают в co.pending — игра заберёт их при ближайшей синхронизации
+# (так же, как дивиденды и награды за друзей). Всё считает сервер.
+# =========================
+XFER_MIN = 1.0              # минимальный перевод, $
+XFER_KEEP = 20              # сколько последних переводов хранится в истории
+_xfer_hits = {}             # (логин, действие) -> метки времени запросов (защита от спама и перебора ID)
+_bg = set()                 # ссылки на фоновые задачи, чтобы их не собрал сборщик мусора
+
+def xfer_rate(login, kind, limit, window=60):
+    now = time.time()
+    key = (login, kind)
+    hits = [t for t in _xfer_hits.get(key, []) if now - t < window]
+    if len(hits) >= limit:
+        _xfer_hits[key] = hits
+        return False
+    _xfer_hits[key] = hits + [now]
+    if len(_xfer_hits) > 5000:
+        for k in [k for k, v in _xfer_hits.items() if not v or now - v[-1] > window]:
+            _xfer_hits.pop(k, None)
+    return True
+
+def xfer_log(user, kind, other, usd):
+    h = user.setdefault("xfer", [])
+    h.insert(0, {"ts": int(time.time()), "k": kind, "id": other[3:], "name": uname(other), "usd": usd})
+    del h[XFER_KEEP:]
+
+def xfer_view(user):
+    return (user.get("xfer") or [])[:XFER_KEEP]
+
+def spawn(coro):
+    t = asyncio.create_task(coro)
+    _bg.add(t)
+    t.add_done_callback(_bg.discard)
+
+async def handle_transfer(request):
+    data, login, user = await co_ctx(request)
+    if not login:
+        return err("Unauthorized", 401)
+    act = data.get("act", "info")
+    if act == "info":
+        return web.json_response({"ok": True, "hist": xfer_view(user), "id": login[3:]})
+    if act not in ("find", "send"):
+        return err("Неизвестное действие")
+    if not xfer_rate(login, act, 30 if act == "find" else 10):
+        return err("Слишком часто — подожди минуту", 429)
+    to = str(data.get("to", "")).strip()
+    if not re.fullmatch(r"\d{1,15}", to):
+        return err("ID — это число из Telegram (Меню → Моя статистика)")
+    target = f"tg_{int(to)}"
+    if target == login:
+        return err("Нельзя отправить деньги самому себе")
+    tu = USERS.get(target)
+    if not isinstance(tu, dict):
+        return err("Игрок с таким ID не найден — он должен хотя бы раз открыть игру")
+    if act == "find":
+        return web.json_response({"ok": True, "id": target[3:], "name": uname(target), "avatar": uava(target)})
+
+    norm(tu)
+    if not isinstance(user.get("game"), dict):
+        return err(NO_SAVE)
+    x = money_in(data.get("usd", 0))
+    if x < XFER_MIN:
+        return err(f"Минимальный перевод — ${XFER_MIN:g}")
+    if x > math.floor(usd_of(user) * 100 + 1e-6) / 100:
+        return err("Не хватает долларов")
+    # дальше нет ни одного await до списания — двойная трата невозможна
+    add_usd(user, -x, 0)
+    tu["co"]["pending"] = round(tu["co"].get("pending", 0) + x, 2)
+    xfer_log(user, "out", target, x)
+    xfer_log(tu, "in", login, x)
+    touch(login)
+    touch(target)
+    await flush()  # перевод фиксируем в БД сразу
+    if TOKEN:
+        spawn(call(request.app["s"], "sendMessage", chat_id=int(to),
+                   text=f"💸 {uname(login)} отправил тебе ${x:,.2f}\nДеньги уже зачисляются в игре 👇",
+                   reply_markup={"inline_keyboard": [[{"text": "🎮 Открыть игру", "web_app": {"url": WEBAPP_URL}}]]}))
+    return web.json_response({"ok": True, "d_usd": -x, "d_xp": 0, "to": uname(target), "hist": xfer_view(user)})
+
+CO_ROUTES.append(("/api/transfer", handle_transfer))
 
 # =========================
 # ЗАПУСК
