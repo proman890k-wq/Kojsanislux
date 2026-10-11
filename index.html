@@ -417,7 +417,7 @@ h3::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,var(--li
     <div class="bcard"><div class="bc-top"><span>НЕЙРОБАНК</span><span class="bc-chip"></span></div>
       <div class="bc-num" id="bcUsd">$0.00</div>
       <div class="bc-row"><span>⚡ <b id="bcTok">0</b> токенов</span><span id="cvRate"></span></div></div>
-    <div class="seg" id="bkTabs"><button data-t="bkSwap" class="on"><i>💱</i>Обмен</button><button data-t="bkDep"><i>🏦</i>Вклад</button><button data-t="bkLoan"><i>🧾</i>Кредит</button></div>
+    <div class="seg" id="bkTabs"><button data-t="bkSwap" class="on"><i>💱</i>Обмен</button><button data-t="bkDep"><i>🏦</i>Вклад</button><button data-t="bkLoan"><i>🧾</i>Кредит</button><button data-t="bkSend"><i>💸</i>Перевод</button></div>
 
     <div id="bkSwap">
       <h3>⚡ Токены → 💵 Доллары</h3>
@@ -441,6 +441,21 @@ h3::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,var(--li
       <div class="qrow"><button class="buy" data-bk="borrow">💸 Взять в долг</button><button class="buy star" data-bk="repay">✅ Вернуть</button></div>
       <div class="acts"><button class="buy alt" data-bk="repayall">Вернуть весь долг</button></div>
       <p class="sub" id="lnInfo"></p>
+    </div>
+
+    <div id="bkSend" hidden>
+      <div class="lcard"><span class="pillst">🆔 Твой ID</span>
+        <div class="big" id="xMyId" style="margin-top:8px;font-size:24px;user-select:text">—</div>
+        <small class="sub">Назови его другу — по нему тебе можно отправить доллары</small>
+        <div class="acts" style="margin:8px 0 0"><button class="buy alt" data-x="copy">📋 Копировать ID</button></div></div>
+      <h3>💸 Перевести доллары</h3>
+      <div class="acts"><input id="xTo" class="wide" type="text" inputmode="numeric" maxlength="15" placeholder="ID получателя" autocomplete="off"></div>
+      <p class="sub" id="xWho" style="min-height:18px;margin:0 0 6px"></p>
+      <div class="acts"><input id="xAmt" class="wide" type="number" min="1" step="1" placeholder="Сумма, $"><button class="buy alt" data-x="max">Макс</button></div>
+      <div class="acts"><button class="buy star" data-x="send">💸 Отправить</button></div>
+      <p class="sub">Минимум $1. Получатель должен хотя бы раз открыть игру: деньги придут ему через пару секунд, бот пришлёт уведомление. Перевод нельзя отменить.</p>
+      <h3>🧾 История</h3>
+      <div id="xHist"></div>
     </div>
   </div>
 
@@ -1382,7 +1397,7 @@ async function bankAct(act, usd, all){
   toast({dep:"🏦 Деньги на вкладе", wd:"💵 Снято " + usdf(r.d_usd), borrow:"💸 Кредит получен: " + usdf(r.d_usd), repay:"✅ Погашено " + usdf(-r.d_usd)}[act] || "Готово");
   hap("success","notificationOccurred");
 }
-$("bkTabs").addEventListener("click", e => { const b = e.target.closest("button[data-t]"); if(!b) return; ["bkSwap","bkDep","bkLoan"].forEach(i => $(i).hidden = i !== b.dataset.t); [...$("bkTabs").children].forEach(x => x.classList.toggle("on", x === b)); if(b.dataset.t !== "bkSwap") bankLoad() });
+$("bkTabs").addEventListener("click", e => { const b = e.target.closest("button[data-t]"); if(!b) return; ["bkSwap","bkDep","bkLoan","bkSend"].forEach(i => $(i).hidden = i !== b.dataset.t); [...$("bkTabs").children].forEach(x => x.classList.toggle("on", x === b)); if(b.dataset.t === "bkSend") xferLoad(); else if(b.dataset.t !== "bkSwap") bankLoad() });
 $("pConv").addEventListener("click", e => {
   const b = e.target.closest("button[data-bk]"); if(!b) return; const k = b.dataset.bk;
   if(k === "max") $("bkIn").value = fl2(Math.min(s.usd, bankD ? Math.max(0, bankD.cap - bankD.amt) : s.usd));
@@ -1392,6 +1407,65 @@ $("pConv").addEventListener("click", e => {
   else if(k === "borrow"){ const v = +$("lnIn").value; if(!(v >= 1)) return toast("⚠️ Минимум $1"); bankAct("borrow", v); $("lnIn").value = "" }
   else if(k === "repay"){ const v = +$("lnIn").value; if(!(v >= 0.01)) return toast("⚠️ Введи сумму"); bankAct("repay", v); $("lnIn").value = "" }
   else if(k === "repayall") bankAct("repay", 0, true);
+});
+
+// ---------- переводы по ID ----------
+let xfer = null, xBusy = false, xFound = null, xTimer = 0;
+const myId = () => String(srv.id || tg?.initDataUnsafe?.user?.id || "");
+function renderXfer(){
+  $("xMyId").textContent = myId() || "—";
+  $("xHist").innerHTML = (xfer || []).map(x => `<div class="row" style="padding:8px 12px"><div class="info"><b>${x.k === "out" ? "➡️ Кому" : "⬅️ От"}: ${esc(x.name)}</b><small>ID ${esc(x.id)} · ${new Date(x.ts*1000).toLocaleString([], {day:"2-digit", month:"2-digit", hour:"2-digit", minute:"2-digit"})}</small></div><b class="${x.k === "out" ? "dn" : "up"}">${x.k === "out" ? "−" : "+"}${usdf(x.usd)}</b></div>`).join("") || '<p class="sub">Переводов пока не было</p>';
+}
+async function xferLoad(){
+  renderXfer();
+  const r = await api("/transfer", {act:"info"});
+  if(!r || r.error) return;
+  xfer = r.hist; if(r.id) srv.id = r.id; renderXfer();
+}
+async function xferFind(){
+  const to = $("xTo").value.trim(), out = $("xWho"); xFound = null;
+  if(!/^\d{1,15}$/.test(to)){ out.textContent = to ? "⚠️ ID — только цифры" : ""; return null }
+  if(to === myId()){ out.textContent = "⚠️ Это твой собственный ID"; return null }
+  out.textContent = "🔎 Ищу…";
+  const r = await api("/transfer", {act:"find", to});
+  if($("xTo").value.trim() !== to) return null;   // пока шёл запрос, ввели другой ID
+  if(!r || r.error){ out.textContent = "⚠️ " + (r?.error || "Сетевая ошибка"); return null }
+  xFound = {to, name:r.name};
+  out.innerHTML = `✅ ${esc(r.avatar || "👤")} <b>${esc(r.name)}</b> · ID ${esc(r.id)}`;
+  return xFound;
+}
+async function xferSend(){
+  if(xBusy) return;
+  const to = $("xTo").value.trim(), v = fl2(+$("xAmt").value || 0);
+  if(!/^\d{1,15}$/.test(to)) return toast("⚠️ Введи ID получателя — только цифры");
+  if(to === myId()) return toast("⚠️ Нельзя отправить деньги самому себе");
+  if(v < 1) return toast("⚠️ Минимальный перевод — $1");
+  if(v > fl2(s.usd)) return toast("⚠️ Не хватает долларов");
+  xBusy = true;
+  const who = xFound && xFound.to === to ? xFound : await xferFind();
+  if(!who){ xBusy = false; return toast($("xWho").textContent || "⚠️ Получатель не найден") }
+  const msg = `Отправить ${usdf(v)} игроку ${who.name} (ID ${to})? Перевод нельзя отменить.`;
+  const run = async ok => {
+    if(!ok){ xBusy = false; return }
+    save();
+    const r = await api("/transfer", {act:"send", to, usd:v, state:s});
+    xBusy = false;
+    if(!r || r.error) return toast("⚠️ " + (r?.error || "Сетевая ошибка"));
+    if(r.d_usd) s.usd = r2(Math.max(0, s.usd + r.d_usd));
+    xfer = r.hist; $("xAmt").value = ""; save(); renderXfer();
+    toast(`💸 Отправлено ${usdf(v)} → ${r.to}`); hap("success","notificationOccurred"); burst(W/2, H/2, 50, "#5df2c4", 8);
+  };
+  tg?.showConfirm ? tg.showConfirm(msg, run) : run(confirm(msg));
+}
+$("xTo").addEventListener("input", e => {
+  e.target.value = e.target.value.replace(/\D/g, ""); xFound = null; $("xWho").textContent = ""; clearTimeout(xTimer);
+  if(e.target.value.length >= 5) xTimer = setTimeout(xferFind, 600);
+});
+$("bkSend").addEventListener("click", e => {
+  const b = e.target.closest("button[data-x]"); if(!b) return; const k = b.dataset.x;
+  if(k === "max") $("xAmt").value = fl2(s.usd);
+  else if(k === "send") xferSend();
+  else if(k === "copy"){ try{ navigator.clipboard?.writeText(myId()) }catch(_){} toast("📋 ID скопирован: " + myId()) }
 });
 
 // ---------- события ----------
@@ -1570,7 +1644,7 @@ const Music = (() => {
 const TUT = [
   {ic:"🧠", t:"Добро пожаловать в Нейроферму!", p:"pFarm", d:"Ты строишь свою нейросеть. <b>Тапай по большому ядру</b> — каждый тап даёт токены ⚡. Чем больше токенов, тем быстрее растёшь."},
   {ic:"🏗", t:"Ферма и апгрейды", p:"pFarm", d:"Токены тратятся на <b>генераторы</b> — они копят токены сами, даже когда тебя нет. На вкладке «Магазин» — апгрейды тапа, критов и офлайн-дохода. Лови золотые ⭐ и мини-события — это бонусы."},
-  {ic:"🏦", t:"Банк", p:"pConv", d:"Меняй токены на <b>доллары 💵</b> (и обратно). Деньги можно положить на <b>вклад</b> — 1% в час, а при нехватке взять <b>кредит</b>. Только не забывай возвращать: бот напомнит о долге."},
+  {ic:"🏦", t:"Банк", p:"pConv", d:"Меняй токены на <b>доллары 💵</b> (и обратно). Деньги можно положить на <b>вклад</b> — 1% в час, а при нехватке взять <b>кредит</b>. Только не забывай возвращать: бот напомнит о долге. А во вкладке <b>Перевод</b> можно отправить доллары другу по его ID."},
   {ic:"🎡", t:"Веселье", p:"pFun", d:"Рулетка, краш, мины, кости, монетка и слоты. Ставки — только в долларах. Играй осторожно: можно как выиграть, так и всё потерять."},
   {ic:"🏢", t:"Компании", p:"pCo", d:"Вступай в компанию или создай свою. Сервер компании ест часть токенов, а взамен даёт <b>бафф к доходу</b> всем участникам. Вкладывай в казну, прокачивай улучшения, лови рост цены монеты. VIP открывает компанию бесплатно."},
   {ic:"🔧", t:"Сборка и рынок", p:"pFarm", d:"Под ядром — кнопка <b>«Настроить сборку»</b>: ставь платы в каналы и усиливай тап, доход, криты и ящики. Платы продаются на <b>🏪 Рынке</b> — ассортимент обновляется раз в 20–30 минут, редкие платы быстро разбирают."},
@@ -1604,6 +1678,7 @@ const MENU = [
   {i:"🏆", t:"Рейтинг", d:"Лучшие игроки: токены, $, уровень", f:() => openSec("pProf", ...prof("pSecTop"))},
   {i:"🔧", t:"Сборка и склад", d:"Платы, каналы, предметы из ящиков", b:() => { const n = Object.values(st.inv || {}).reduce((a, b) => a + b, 0); return n ? "📦 " + n : "" }, f:() => go("pRig")},
   {i:"🎁", t:"Друзья", d:"$500 за каждого приглашённого", f:() => openSec("pProf", ...prof("pSecRef"))},
+  {i:"💸", t:"Перевод", d:"Отправить $ другу по ID", f:() => openSec("pConv", '#bkTabs [data-t="bkSend"]')},
   {i:"🎟", t:"Промокод", d:"Введи код и забери награду", f:() => { openSec("pProf", ...prof("pSecStats")); setTimeout(() => $("promoIn").focus(), 150) }},
   {i:"📊", t:"Моя статистика", d:"Профиль, аватар, достижения", f:() => openSec("pProf", ...prof("pSecStats"))},
   {i:"⚙️", t:"Настройки", d:"Музыка, громкость, обучение", f:() => openSec("pProf", ...prof("pSecSet"))},
