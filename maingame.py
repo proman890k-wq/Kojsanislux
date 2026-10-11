@@ -75,9 +75,17 @@ async def flush():
                 if gone:
                     await c.execute("DELETE FROM users WHERE login = ANY($1::text[])", list(gone))
                 if rows:
-                    await c.executemany(
-                        "INSERT INTO users (login, data) VALUES ($1, $2::jsonb) "
-                        "ON CONFLICT (login) DO UPDATE SET data = EXCLUDED.data", rows)
+                    sql = ("INSERT INTO users (login, data) VALUES ($1, $2::jsonb) "
+                           "ON CONFLICT (login) DO UPDATE SET data = EXCLUDED.data")
+                    try:
+                        await c.executemany(sql, rows)
+                    except asyncpg.PostgresError as e:  # битые данные в одной строке — пишем по одной
+                        print("DB BATCH ERROR, пишу по одной:", repr(e))
+                        for row in rows:
+                            try:
+                                await c.execute(sql, *row)
+                            except asyncpg.PostgresError as e2:
+                                print("DB SKIP", row[0], repr(e2))  # не повторяем бесконечно
         else:
             tmp = DB_FILE + ".tmp"
             with open(tmp, "w", encoding="utf-8") as f:
@@ -119,7 +127,7 @@ async def db_init():
                             "(login TEXT PRIMARY KEY, data JSONB NOT NULL)")
             rows = await c.fetch("SELECT login, data FROM users")
         for r in rows:
-            USERS[r["login"]] = json.loads(r["data"])
+            USERS[r["login"]] = json.loads(r["data"]) if isinstance(r["data"], str) else r["data"]
         if not rows:  # разовый перенос из старого database.json
             USERS.update(read_file_db())
             _dirty.update(USERS)
@@ -133,6 +141,7 @@ async def db_init():
             COMPANIES[u["id"]] = u
     migrate_coins()
     print(f"Компаний: {len(COMPANIES)}")
+    market_init()
 
 def new_user():
     return {"inv": {"cooler": 1}, "next_box": 0, "perks": {}, "purchases": [],
@@ -141,6 +150,7 @@ def new_user():
             "daily": {"last": "", "streak": 0}, "bank": {"amt": 0.0, "t": 0},
             "loan": {"debt": 0.0, "principal": 0.0, "t": 0, "since": 0, "last_remind": 0, "remind_n": 0},
             "co": {"id": None, "hold": {}, "cost": {}, "last": 0, "pending": 0.0},
+            "rig": {"slots": 4, "own": {}, "eq": [None] * 4},
             "ref": {"by": None, "paid": True, "count": 0, "earned": 0.0, "names": []}}
 
 def norm(user):
@@ -217,7 +227,7 @@ def get_login(data):
             secret = hmac.new(b"WebAppData", TOKEN.encode(), hashlib.sha256).digest()
             calc = hmac.new(secret, check.encode(), hashlib.sha256).hexdigest()
             fresh = time.time() - int(pairs.get("auth_date", 0)) < 7 * 86400
-            if hmac.compare_digest(calc, recv) and fresh:
+            if hmac.compare_digest(calc.encode(), recv.encode()) and fresh:
                 ud = json.loads(pairs.get("user", "{}"))
                 uid = ud.get("id")
                 start = pairs.get("start_param", "")
@@ -275,6 +285,7 @@ async def handle_me(request):
                     "promos": len(user["promos"]), "promo_list": promo_list(user),
                     "vip": is_vip(user), "avatar": user.get("avatar", "")},
         "daily": daily_info(user),
+        "rig": rig_view(user), "mrev": (market_tick(), MARKET.get("rev", 0))[1],
     })
 
 async def handle_drop(request):
@@ -292,7 +303,8 @@ async def handle_drop(request):
             chosen = it["id"]
             break
     user["inv"][chosen] = user["inv"].get(chosen, 0) + 1
-    user["next_box"] = now + (VIP_BOX_COOLDOWN_MS if is_vip(user) else BOX_COOLDOWN_MS)
+    base_cd = VIP_BOX_COOLDOWN_MS if is_vip(user) else BOX_COOLDOWN_MS
+    user["next_box"] = now + base_cd * (1 - rig_fx(user)[0]["box"])
     touch(login)
     return web.json_response({"item": chosen, "state": state_of(user)})
 
@@ -368,6 +380,9 @@ async def handle_promo(request):
     if len(tries) >= 10:
         return web.json_response({"error": "Слишком много попыток, подожди минуту"}, status=429)
     _attempts[login] = tries + [now]
+    if len(_attempts) > 5000:
+        for k in [k for k, v in _attempts.items() if not v or now - v[-1] > 60]:
+            _attempts.pop(k, None)
 
     code = str(data.get("code", "")).strip().upper()[:40]
     promos = await load_promos(request.app["s"])
@@ -486,7 +501,7 @@ async def grant_purchase(session, message):
 
 async def handle_webhook(request):
     if WEBHOOK_SECRET and not hmac.compare_digest(
-            request.headers.get("X-Telegram-Bot-Api-Secret-Token", ""), WEBHOOK_SECRET):
+            request.headers.get("X-Telegram-Bot-Api-Secret-Token", "").encode(), WEBHOOK_SECRET.encode()):
         return web.Response(status=403, text="forbidden")  # иначе кто угодно мог бы подделать оплату
     try:
         data = await request.json()
@@ -839,7 +854,7 @@ async def handle_co_sync(request):
         if not math.isfinite(t) or t < 0:
             t = 0.0
         dt = min(900.0, max(0.0, now - (co.get("last") or now)))
-        drain = t * (1 - math.exp(-appetite(c, now) / 60 * dt))
+        drain = t * (1 - math.exp(-appetite(c, now) / 60 * dt)) * (1 - rig_fx(user)[0]["cool"])
         if drain > 0:
             c["fed"] += drain
             c["members"][login]["fed"] = c["members"][login].get("fed", 0) + drain
@@ -929,6 +944,7 @@ async def handle_co_create(request):
     co_log(c, f"🎉 Компания «{name}» ({ticker}) основана")
     touch(login)
     touch("co_" + cid)
+    await flush()  # новая компания и списание денег сразу в БД
     return ok(user, login, d_usd=d_usd, d_xp=500 if d_usd else 300 if is_vip(user) else 200)
 
 async def handle_co_join(request):
@@ -980,6 +996,7 @@ async def handle_co_disband(request):
     if not c or c["owner"] != login:
         return err("Только владелец может распустить компанию")
     disband(c)
+    await flush()
     return ok(user, login)
 
 async def handle_co_settings(request):
@@ -1042,6 +1059,8 @@ async def handle_co_core(request):
     else:
         try:
             i = int(data.get("slot"))
+            if i < 0:
+                raise IndexError
             x = c["cores"][i]
         except (TypeError, ValueError, IndexError):
             return err("Слот не найден")
@@ -1092,7 +1111,9 @@ async def handle_co_dividends(request):
     if share < 1:
         return err("В казне слишком мало — нужно хотя бы $1 на каждого")
     for l in c["members"]:
-        u = USERS[l]
+        u = USERS.get(l)
+        if not u:
+            continue
         u["co"]["pending"] = round(u["co"].get("pending", 0) + share, 2)
         touch(l)
     c["treasury"] = round(c["treasury"] - share * n, 2)
@@ -1358,7 +1379,7 @@ async def set_vip(session, uid, on=True):
 
 async def handle_admin_vip(request):
     key = request.headers.get("X-Admin-Key", "")
-    if not ADMIN_KEY or not hmac.compare_digest(key, ADMIN_KEY):
+    if not ADMIN_KEY or not hmac.compare_digest(key.encode(), ADMIN_KEY.encode()):
         return web.json_response({"error": "forbidden"}, status=403)
     data = await read_json(request)
     uid = re.sub(r"\D", "", str(data.get("id", "")))[:15]
@@ -1453,6 +1474,282 @@ async def handle_ref(request):
 CO_ROUTES.append(("/api/ref", handle_ref))
 
 # =========================
+# СБОРКА (платы в каналах) И РЫНОК КОМПОНЕНТОВ
+# Платы дают постоянные бонусы. Покупаются на общем рынке: ассортимент и остатки у всех одни,
+# обновляется раз в 20–30 минут. Всё считает сервер — клиент только показывает.
+# =========================
+FX_KEYS = ("tap", "ps", "crit", "box", "cool", "star")
+FX_CAP = {"tap": 10.0, "ps": 10.0, "crit": 0.5, "box": 0.5, "cool": 0.6, "star": 0.5}
+SLOTS_START, SLOTS_MAX = 4, 8
+SLOT_COST = [25_000, 80_000, 200_000, 500_000]   # цена 5-го … 8-го канала
+SYNERGY_KINDS, SYNERGY_BONUS = 4, 0.10           # 4 разных типа эффекта в сборке — +10% ко всему
+SELL_RATE = 0.4                                  # продажа плат обратно — 40% базовой цены
+CRATE_COST = 180_000                             # «Тёмная партия»: случайная плата
+CRATE_W = {"r": 52, "e": 32, "l": 13.5, "u": 2.5}
+LIST_W = {"r": 55, "e": 28, "l": 13, "u": 4}     # шансы редкости лота на рынке
+STOCK = {"r": (3, 6), "e": (2, 4), "l": (1, 2), "u": (1, 1)}
+RARITY_XP = {"r": 20, "e": 80, "l": 250, "u": 1000}
+RARITY_NAME = {"r": "редкая", "e": "эпическая", "l": "легендарная", "u": "ультра-редкая"}
+
+# id: (название, эмодзи, редкость, {эффект: значение}, базовая цена $)
+# tap — сила тапа, ps — пассивный доход, crit — шанс крита, box — быстрее ящики,
+# cool — меньше аппетит сервера компании, star — чаще золотые звёзды
+PARTS = {
+    "gt_lite": ("Видеоплата GT-Lite", "🎮", "r", {"tap": 0.06}, 6_000),
+    "ram_x": ("Модуль RAM-X", "💾", "r", {"ps": 0.06}, 7_000),
+    "fan_aero": ("Кулер Aero", "🌬️", "r", {"cool": 0.08}, 6_500),
+    "lucky_chip": ("Чип удачи", "🍀", "r", {"star": 0.10}, 5_500),
+    "box_relay": ("Реле доставки", "📮", "r", {"box": 0.08}, 6_000),
+    "rtx_nova": ("Видеоплата Nova", "🖥️", "e", {"tap": 0.15}, 60_000),
+    "tpu_core": ("Тензорный блок TPU", "🧮", "e", {"ps": 0.15}, 70_000),
+    "crit_unit": ("Блок критов", "💥", "e", {"crit": 0.04}, 80_000),
+    "liquid": ("Жидкостное охлаждение", "💧", "e", {"cool": 0.18}, 65_000),
+    "drop_mod": ("Логистический модуль", "📡", "e", {"box": 0.15}, 75_000),
+    "twin_chip": ("Двойной чип", "🔀", "e", {"tap": 0.08, "ps": 0.08}, 90_000),
+    "quantum_gpu": ("Квантовый GPU", "⚛️", "l", {"tap": 0.35}, 450_000),
+    "neuro_asic": ("Нейро-ASIC", "🧠", "l", {"ps": 0.35}, 520_000),
+    "crit_matrix": ("Матрица критов", "🎯", "l", {"crit": 0.09}, 600_000),
+    "cryo_loop": ("Криоконтур", "❄️", "l", {"cool": 0.35}, 480_000),
+    "cargo_bay": ("Грузовой шлюз", "🚚", "l", {"box": 0.30}, 550_000),
+    "star_magnet": ("Звёздный магнит", "🧲", "l", {"star": 0.30, "crit": 0.03}, 500_000),
+    "singularity_gpu": ("GPU «Сингулярность»", "🌌", "u", {"tap": 0.80}, 3_200_000),
+    "dyson_asic": ("ASIC «Сфера Дайсона»", "☀️", "u", {"ps": 0.80}, 4_500_000),
+    "omega_cryo": ("Омега-криостат", "🧊", "u", {"cool": 0.60}, 3_600_000),
+    "chronos_drive": ("Хронопривод", "⏳", "u", {"box": 0.50}, 3_800_000),
+    "fortune_core": ("Ядро фортуны", "🎰", "u", {"crit": 0.20, "star": 0.25}, 3_900_000),
+    "overmind": ("Оверразум", "👁️", "u", {"tap": 0.50, "ps": 0.50, "cool": 0.20}, 6_000_000),
+}
+SLOT_PRICES = SLOT_COST
+
+def rig_of(user):
+    r = user.setdefault("rig", {})
+    r.setdefault("slots", SLOTS_START)
+    r.setdefault("own", {})
+    eq = r.setdefault("eq", [])
+    while len(eq) < r["slots"]:
+        eq.append(None)
+    return r
+
+def rig_fx(user):
+    """Суммарные бонусы сборки + флаг синергии."""
+    fx, kinds = dict.fromkeys(FX_KEYS, 0.0), set()
+    for pid in rig_of(user)["eq"]:
+        part = PARTS.get(pid)
+        if part:
+            for k, v in part[3].items():
+                fx[k] += v
+                kinds.add(k)
+    syn = len(kinds) >= SYNERGY_KINDS
+    if syn:
+        for k in fx:
+            fx[k] *= 1 + SYNERGY_BONUS
+    return {k: round(min(FX_CAP[k], v), 4) for k, v in fx.items()}, syn
+
+def part_json(pid):
+    n, e, r, fx, price = PARTS[pid]
+    return {"n": n, "e": e, "r": r, "fx": fx, "p": price, "sell": int(price * SELL_RATE)}
+
+def rig_view(user):
+    r = rig_of(user)
+    fx, syn = rig_fx(user)
+    nxt = SLOT_COST[r["slots"] - SLOTS_START] if r["slots"] < SLOTS_MAX else 0
+    return {"slots": r["slots"], "eq": r["eq"], "own": {k: v for k, v in r["own"].items() if v > 0 and k in PARTS},
+            "fx": fx, "syn": syn, "slot_cost": nxt, "max": SLOTS_MAX, "syn_kinds": SYNERGY_KINDS,
+            "syn_bonus": int(SYNERGY_BONUS * 100), "cat": {k: part_json(k) for k in PARTS}}
+
+# ---------- рынок ----------
+MARKET = {}
+
+def market_gen():
+    by_r = {}
+    for pid, part in PARTS.items():
+        by_r.setdefault(part[2], []).append(pid)
+    items, used, tries = [], set(), 0
+    while len(items) < 6 and tries < 80:
+        tries += 1
+        rar = random.choices(list(LIST_W), weights=list(LIST_W.values()))[0]
+        pid = random.choice(by_r[rar])
+        if pid in used:
+            continue
+        used.add(pid)
+        base = PARTS[pid][4]
+        price = int(round(base * random.uniform(0.85, 1.3), -2 if base < 100_000 else -3))
+        stock = random.randint(*STOCK[rar])
+        items.append({"k": secrets.token_hex(3), "part": pid, "price": price, "stock": stock, "left": stock, "deal": False})
+    if items:  # одна случайная позиция — со скидкой 25%
+        d = random.choice(items)
+        d["deal"] = True
+        d["price"] = int(d["price"] * 0.75)
+    return items
+
+def market_feed(text):
+    MARKET.setdefault("feed", []).insert(0, {"ts": int(time.time()), "t": text})
+    del MARKET["feed"][12:]
+
+def market_refresh():
+    now = time.time()
+    MARKET["items"] = market_gen()
+    MARKET["rev"] = MARKET.get("rev", 0) + 1
+    MARKET["next"] = now + random.uniform(20, 30) * 60
+    ultra = any(PARTS[i["part"]][2] == "u" for i in MARKET["items"])
+    market_feed("🔄 Рынок обновлён" + (" — завезли ультра-редкую плату! 💎" if ultra else ""))
+    touch("sys_market")
+
+def market_init():
+    global MARKET
+    m = USERS.get("sys_market")
+    if not isinstance(m, dict):
+        m = {"rev": 0, "next": 0, "items": [], "feed": []}
+        USERS["sys_market"] = m
+    MARKET = m
+    if not m.get("items") or time.time() >= m.get("next", 0):
+        market_refresh()
+    else:
+        print(f"Рынок плат: лотов {len(m['items'])}, обновление через {int(m['next'] - time.time())} с")
+
+async def parts_market_loop():
+    while True:
+        await asyncio.sleep(15)
+        try:
+            if MARKET and time.time() >= MARKET.get("next", 0):
+                market_refresh()
+        except Exception as e:
+            print("PARTS MARKET ERROR:", repr(e))
+
+def market_tick():
+    if MARKET and time.time() >= MARKET.get("next", 0):
+        market_refresh()
+
+def market_view():
+    market_tick()
+    items = [{**it, **part_json(it["part"])} for it in MARKET.get("items", []) if it.get("part") in PARTS]
+    return {"items": items, "next": max(0, int(MARKET.get("next", 0) - time.time())), "rev": MARKET.get("rev", 0),
+            "feed": MARKET.get("feed", [])[:10], "crate": CRATE_COST,
+            "crate_w": {k: v for k, v in CRATE_W.items()}, "sell_rate": int(SELL_RATE * 100)}
+
+def rig_ok(user, d_usd=0.0, d_xp=0.0, **extra):
+    return web.json_response({"ok": True, "d_usd": round(d_usd, 2), "d_xp": round(d_xp, 2),
+                              "rig": rig_view(user), "market": market_view(), **extra})
+
+async def handle_market(request):
+    data, login, user = await co_ctx(request)
+    if not login:
+        return err("Unauthorized", 401)
+    rig, act = rig_of(user), data.get("act", "info")
+    d_usd = d_xp = 0.0
+    extra = {}
+    market_tick()
+    if act in ("buy", "crate", "sell") and not isinstance(user.get("game"), dict):
+        return err(NO_SAVE)
+    if act == "buy":
+        it = next((x for x in MARKET.get("items", []) if x["k"] == data.get("k")), None)
+        if not it or it["part"] not in PARTS:
+            return err("Лот устарел — рынок обновился")
+        if it["left"] < 1:
+            return err("Распродано")
+        price = float(it["price"])
+        try:
+            seen = float(data.get("p"))
+        except (TypeError, ValueError):
+            seen = None
+        if seen is not None and price > seen + 0.5:
+            return err(f"Цена изменилась: теперь ${price:,.0f}. Проверь рынок и купи снова")
+        if usd_of(user) + 0.001 < price:
+            return err("Не хватает долларов")
+        pid, rar = it["part"], PARTS[it["part"]][2]
+        it["left"] -= 1
+        if it["left"] > 0:
+            it["price"] = int(price * 1.08)  # спрос растёт — остаток дорожает
+        d_xp = float(RARITY_XP[rar])
+        add_usd(user, -price, d_xp)
+        d_usd = -price
+        rig["own"][pid] = rig["own"].get(pid, 0) + 1
+        market_feed(f"🛒 {uname(login)} купил «{PARTS[pid][0]}» ({RARITY_NAME[rar]})")
+        touch("sys_market")
+        extra["got"] = pid
+    elif act == "crate":
+        if usd_of(user) + 0.001 < CRATE_COST:
+            return err("Не хватает долларов")
+        rar = random.choices(list(CRATE_W), weights=list(CRATE_W.values()))[0]
+        pid = random.choice([k for k, v in PARTS.items() if v[2] == rar])
+        d_xp = float(RARITY_XP[rar]) / 2
+        add_usd(user, -CRATE_COST, d_xp)
+        d_usd = -float(CRATE_COST)
+        rig["own"][pid] = rig["own"].get(pid, 0) + 1
+        if rar in ("l", "u"):
+            market_feed(f"🎁 {uname(login)} вскрыл «Тёмную партию» и достал «{PARTS[pid][0]}» ({RARITY_NAME[rar]})!")
+            touch("sys_market")
+        extra["got"] = pid
+    elif act == "sell":
+        pid = data.get("id")
+        if pid not in PARTS or rig["own"].get(pid, 0) < 1:
+            return err("Такой платы нет на складе")
+        price = int(PARTS[pid][4] * SELL_RATE)
+        rig["own"][pid] -= 1
+        add_usd(user, price, 0)
+        d_usd = float(price)
+    elif act != "info":
+        return err("Неизвестное действие")
+    touch(login)
+    if act != "info":
+        await flush()  # покупки фиксируем в БД сразу
+    return rig_ok(user, d_usd, d_xp, **extra)
+
+async def handle_rig(request):
+    data, login, user = await co_ctx(request)
+    if not login:
+        return err("Unauthorized", 401)
+    rig, act = rig_of(user), data.get("act", "info")
+    d_usd = d_xp = 0.0
+    if act == "equip":
+        pid = data.get("id")
+        if pid not in PARTS or rig["own"].get(pid, 0) < 1:
+            return err("Такой платы нет на складе")
+        try:
+            slot = int(data.get("slot", -1))
+        except (TypeError, ValueError):
+            slot = -1
+        if slot < 0:
+            slot = next((i for i, x in enumerate(rig["eq"]) if x is None), -1)
+        if slot < 0 or slot >= rig["slots"]:
+            return err("Нет свободных каналов — сними плату или купи канал")
+        if rig["eq"][slot] is not None:
+            return err("Канал занят")
+        rig["own"][pid] -= 1
+        rig["eq"][slot] = pid
+    elif act == "unequip":
+        try:
+            slot = int(data.get("slot"))
+        except (TypeError, ValueError):
+            return err("Канал не найден")
+        if slot < 0 or slot >= len(rig["eq"]) or rig["eq"][slot] is None:
+            return err("Канал пуст")
+        pid = rig["eq"][slot]
+        rig["eq"][slot] = None
+        rig["own"][pid] = rig["own"].get(pid, 0) + 1
+    elif act == "slot":
+        if rig["slots"] >= SLOTS_MAX:
+            return err("Максимум каналов")
+        if not isinstance(user.get("game"), dict):
+            return err(NO_SAVE)
+        cost = SLOT_COST[rig["slots"] - SLOTS_START]
+        if usd_of(user) + 0.001 < cost:
+            return err("Не хватает долларов")
+        add_usd(user, -cost, 50)
+        d_usd, d_xp = -float(cost), 50.0
+        rig["slots"] += 1
+        rig["eq"].append(None)
+    elif act != "info":
+        return err("Неизвестное действие")
+    touch(login)
+    if act == "slot":
+        await flush()
+    return rig_ok(user, d_usd, d_xp)
+
+CO_ROUTES.append(("/api/rig", handle_rig))
+CO_ROUTES.append(("/api/market", handle_market))
+
+# =========================
 # ЗАПУСК
 # =========================
 async def keep_alive(app):
@@ -1467,16 +1764,17 @@ async def keep_alive(app):
             await asyncio.sleep(240)
 
 async def on_start(app):
+    global BOT_NAME
     await db_init()
     app["writer_task"] = asyncio.create_task(writer())
     app["market_task"] = asyncio.create_task(market_loop())
     app["s"] = ClientSession()
     app["debt_task"] = asyncio.create_task(debt_loop(app))
+    app["parts_task"] = asyncio.create_task(parts_market_loop())
     if TOKEN:
         await call(app["s"], "setWebhook", url=f"{RENDER_URL}/webhook", secret_token=WEBHOOK_SECRET,
                    allowed_updates=["message", "pre_checkout_query"])
         me = await call(app["s"], "getMe")
-        global BOT_NAME
         BOT_NAME = (me.get("result") or {}).get("username", "")
     app["keep_alive_task"] = asyncio.create_task(keep_alive(app))
 
@@ -1487,6 +1785,8 @@ async def on_cleanup(app):
         app["market_task"].cancel()
     if "debt_task" in app:
         app["debt_task"].cancel()
+    if "parts_task" in app:
+        app["parts_task"].cancel()
     _dirty.update(USERS)  # перед остановкой пишем всех
     await flush()
     if _pool:
