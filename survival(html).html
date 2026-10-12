@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="ru"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Жирный Боб: Последний огород</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;font-family:system-ui,-apple-system,Segoe UI,sans-serif;background:linear-gradient(#8be05f,#2f9e57);color:#2b1b0e;min-height:100vh;padding-bottom:78px}
+#main{max-width:560px;margin:0 auto}
+.card{background:#fff8e1;border:3px solid #2b1b0e;border-radius:18px;padding:10px;margin:10px;box-shadow:0 4px 0 #2b1b0e}
+.row{display:flex;gap:8px;align-items:center}
+.btn{background:linear-gradient(#ffd23f,#ff9f1c);border:3px solid #2b1b0e;border-radius:14px;padding:9px 12px;font-weight:800;font-size:14px;box-shadow:0 3px 0 #2b1b0e;color:#2b1b0e;cursor:pointer}
+.btn:active{transform:translateY(3px);box-shadow:none}.btn:disabled{filter:grayscale(1);opacity:.55}
+.full{width:100%}.busy .btn,.busy .big{opacity:.7}
+.bar{height:14px;border:2px solid #2b1b0e;border-radius:9px;background:#fff;overflow:hidden;margin:3px 0}.bar i{display:block;height:100%;transition:width .4s}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.big{font-size:34px;background:#fff;border:3px solid #2b1b0e;border-radius:16px;padding:10px 0;box-shadow:0 3px 0 #2b1b0e;text-align:center;min-height:78px;color:#2b1b0e;font-family:inherit}
+button.big:active{transform:translateY(3px);box-shadow:none}
+.big small{display:block;font-size:11px;font-weight:700}.ready{background:#b7f58a;animation:pulse 1s infinite}
+.chip{background:#fff;border:3px solid #2b1b0e;border-radius:12px;padding:5px 7px;font-size:12px;font-weight:700;margin:2px;color:#2b1b0e}.chip.on{background:#ffd23f}
+.ln{font-size:13px;padding:3px 0;border-bottom:1px dashed #c9b27a;animation:fi .3s both}
+.ev{background:#ffe08a;font-weight:700}small{color:#6b4e2e}
+nav{position:fixed;bottom:0;left:0;right:0;display:flex;background:#2b1b0e;z-index:5}
+nav button{flex:1;background:none;border:0;color:#fff;font-size:20px;padding:8px 0 4px}nav small{display:block;font-size:9px;color:#fff}nav .on{background:#ff9f1c}
+.fl{position:fixed;pointer-events:none;font-weight:900;font-size:22px;color:#fff;text-shadow:0 2px 0 #2b1b0e,0 0 4px #2b1b0e;animation:up 1s forwards;z-index:20}
+.toast{position:fixed;top:12px;left:50%;transform:translateX(-50%);background:#2b1b0e;color:#fff;padding:10px 16px;border-radius:14px;z-index:30;font-weight:700;max-width:90%;animation:fi .2s;margin-top:calc(var(--n,0)*0px)}
+.toast.bad{background:#c0392b}
+.modal{position:fixed;inset:0;background:#0009;z-index:40;display:flex;align-items:center;justify-content:center}
+@keyframes up{to{transform:translateY(-90px) scale(1.3);opacity:0}}@keyframes fi{from{opacity:0;transform:translateY(6px)}}
+@keyframes pulse{50%{transform:scale(1.05)}}
+</style></head><body>
+<div id="main"></div><nav id="nav"></nav>
+<script>
+const tg=window.Telegram&&Telegram.WebApp;
+if(tg){try{tg.ready();tg.expand();tg.setHeaderColor("#2b1b0e")}catch(e){}}
+const API=""; // если index.html лежит на другом хосте, впиши сюда URL сервера, например "https://my-app.onrender.com"
+const $=s=>document.querySelector(s);
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+let S=null,M=null,tab="island",busy=false,skew=0,sel="potato",F=null;
+const TABS=[["island","🏝️","Остров"],["farm","🌾","Ферма"],["build","🔨","Стройка"],["inv","🎒","Вещи"],["hero","🧔","Герой"],["shop","🛒","Магазин"],["quest","📜","Задания"]];
+const re=k=>M.RES[k][0];
+const cost=c=>Object.entries(c).map(([k,v])=>`<b style="color:${S.res[k]>=v?'#1b7a2b':'#c0392b'}">${re(k)}${v}</b>`).join(" ");
+const bar=(p,c)=>`<div class="bar"><i style="width:${Math.max(0,Math.min(100,p*100))}%;background:${c}"></i></div>`;
+const fmt=t=>t>=60?Math.floor(t/60)+"м "+Math.floor(t%60)+"с":Math.ceil(t)+"с";
+function toast(m,bad){const t=document.createElement("div");t.className="toast"+(bad?" bad":"");t.textContent=m;document.body.appendChild(t);setTimeout(()=>t.remove(),2600)}
+function fl(txt,x,y){const e=document.createElement("div");e.className="fl";e.textContent=txt;e.style.left=Math.max(5,x-40)+"px";e.style.top=y+"px";document.body.appendChild(e);setTimeout(()=>e.remove(),1000)}
+async function api(p,b={}){
+  if(busy)return null;busy=true;document.body.classList.add("busy");
+  try{
+    const r=await fetch(API+"/api/"+p,{method:"POST",headers:{"Content-Type":"application/json","X-Init-Data":tg?tg.initData:""},body:JSON.stringify(b)});
+    const j=await r.json();
+    if(j.state){S=j.state;skew=S.now-Date.now()/1000}
+    if(j.meta)M=j.meta;
+    if(!j.ok)toast(j.error||"Ошибка",1);
+    else{if(j.fight)F=j.fight;if(j.msg)toast(j.msg);if(j.offline)offline(j.offline)}
+    render();return j;
+  }catch(e){toast("Нет соединения с сервером",1);return null}
+  finally{busy=false;document.body.classList.remove("busy")}
+}
+const act=api;
+function offline(o){
+  const m=document.createElement("div");m.className="modal";
+  m.innerHTML=`<div class="card" style="max-width:320px"><h3>👋 С возвращением!</h3><p>Тебя не было ${fmt(o.secs)}. Остров работал:</p>${Object.entries(o.gain).map(([k,v])=>`<div>${re(k)} ${M.RES[k][1]}: <b>+${v}</b></div>`).join("")}<br><button class="btn full">Забрать!</button></div>`;
+  m.querySelector("button").onclick=()=>m.remove();document.body.appendChild(m);
+}
+async function collect(k,e){
+  const x=e.clientX,y=e.clientY,j=await act("collect",{obj:k});
+  if(j&&j.ok){const t=Object.entries(j.gain).filter(a=>a[1]).map(([r,n])=>`+${n}${re(r)}`).join(" ")||"Склад полон";fl((j.crit?"💥 ":"")+t,x,y)}
+}
+function biome(id){const b=M.BIO[id];if(!S.biomes.includes(id)&&b.c>=500&&!confirm(`Открыть «${b.n}» за ${b.c}🪙?`))return;act("biome",{id})}
+function prestige(){if(confirm(`Перерождение сбросит ресурсы, здания, уровень и ферму. Останутся питомцы, оружие, биомы и награды, а доход навсегда вырастет на 10%. Продолжить?`))act("prestige",{confirm:true})}
+let TOP=null,topBusy=false;
+async function loadTop(){
+  if(topBusy)return;topBusy=true;
+  try{const r=await fetch(API+"/api/top"),j=await r.json();if(j.ok){TOP=j.top;if(tab=="quest")render()}}
+  catch(e){toast("Рейтинг недоступен",1)}
+  finally{topBusy=false}
+}
+function buy(id){const it=M.SHOP[id],g=it.c.gold||0;if(g>=500&&!confirm(`Купить «${it.n}» за ${g}🪙?`))return;act("buy",{id})}
+const evt=()=>S.event?`<div class="card ev">${esc(S.event.title)} — ${esc(S.event.text)} ${S.event.left>0?`(${fmt(S.event.left)})`:""}</div>`:"";
+const V={
+island:()=>`<div class="card"><div class="row"><div style="font-size:50px">🧔</div><div style="flex:1"><b>${esc(S.name)} · ур. ${S.lvl}</b>${bar(S.xp/S.need,"#4dabf7")}<small>XP ${S.xp}/${S.need}</small>${bar(S.hp/S.maxhp,"#ff4d4d")}<small>❤️ ${S.hp}/${S.maxhp}</small></div></div></div>
+<div class="card grid">${Object.keys(M.RES).map(k=>`<div>${re(k)} <b>${S.res[k]}</b>${S.rates[k]?`<small> +${S.rates[k]}/ч</small>`:""}</div>`).join("")}</div>${evt()}
+<div class="card"><b>🗺️ Биомы</b> <small>(даёт бонус к добыче)</small><div>${Object.entries(M.BIO).map(([k,b])=>{const own=S.biomes.includes(k),cur=S.biome==k,bon=Object.entries(b.b).filter(x=>x[1]>1).map(x=>re(x[0])+"×"+x[1]).join(" ")+(b.x?" 💎+"+Math.round(b.x*100)+"%":"");return`<button class="chip ${cur?"on":""}" ${cur?"disabled":""} onclick="biome('${k}')">${b.e} ${b.n}<br><small>${bon}${own?"":S.lvl<b.u?" 🔒ур."+b.u:" · 🪙"+b.c}</small></button>`}).join("")}</div></div>
+<div class="card"><b>⛏️ Добыча (жми!)</b><div class="grid" style="margin-top:8px">${Object.entries(M.OBJ).map(([k,o])=>`<button class="big" onclick="collect('${k}',event)">${o[0]}<small>${M.RES[o[1]][1]}</small></button>`).join("")}</div></div>
+<div class="card"><b>📜 Лента</b>${S.log.slice().reverse().map(l=>`<div class="ln">${esc(l)}</div>`).join("")}</div>`,
+farm:()=>{const now=Date.now()/1000+skew;return evt()+`<div class="card"><b>🌱 Выбери культуру (посадка: семена + 1💧)</b><div>${Object.entries(M.CROP).map(([k,c])=>`<button class="chip ${sel==k?"on":""}" onclick="sel='${k}';render()">${c[1]} ${c[0]}<br><small>🌱${c[2]} · ${fmt(c[3])} · ${re(c[4])}${c[5]}${S.lvl<c[6]?" 🔒ур."+c[6]:""}</small></button>`).join("")}</div></div>
+<div class="card"><div class="grid">${S.plots.map((p,i)=>{if(!p.c)return`<button class="big" onclick="act('plant',{plot:${i},crop:sel})">➕<small>Посадить</small></button>`;const c=M.CROP[p.c],l=p.t-now;return l>0?`<div class="big">${c[1]}<small>${fmt(l)}</small></div>`:`<button class="big ready" onclick="act('harvest',{plot:${i}})">${c[1]}<small>Собрать!</small></button>`}).join("")}</div>
+<small>Больше клеток — улучшай «Грядку». Колодец ускоряет рост, лаборатория повышает шанс мутации ×3.</small><br><button class="btn full" style="margin-top:8px" onclick="buy('fert')">💩 Удобрение (-50% времени) ${cost(M.SHOP.fert.c)}</button></div>`},
+build:()=>Object.entries(M.BLD).map(([i,b])=>{const lock=S.lvl<b.u;return`<div class="card row"><div style="font-size:34px">${b.e}</div><div style="flex:1"><b>${b.n}</b> ур.${S.bld[i]||0}<br><small>${b.d}</small></div><button class="btn" ${lock?"disabled":""} onclick="act('build',{id:'${i}'})">${lock?"🔒 ур."+b.u:cost(S.next[i])}</button></div>`}).join(""),
+inv:()=>`<div class="card"><b>🎒 Ресурсы</b> <small>(склад до ${S.cap}, золото и кристаллы без лимита; офлайн до ${S.offcap}ч)</small>${Object.entries(M.RES).map(([k,r])=>`<div class="ln">${r[0]} <b>${r[1]}: ${S.res[k]}</b> <small>— ${r[2]}</small></div>`).join("")}</div>
+<div class="card"><b>⚔️ Оружие</b>${Object.entries(M.WEAP).filter(([k])=>S.weapons.includes(k)).map(([k,w])=>`<div class="ln">${w[1]} ${w[0]} — урон ${w[2]} ${k==S.weapon?"✅":""}</div>`).join("")}</div>
+<div class="card"><b>🐾 Питомцы</b>${Object.entries(M.PET).map(([k,p])=>{const l=S.pets[k]||0,lock=S.lvl<p.u;return`<div class="row ln"><div style="font-size:30px">${p.e}</div><div style="flex:1"><b>${p.n}</b> ур.${l} <small>· ${p.r}</small><br><small>${p.d}</small></div><button class="btn" ${lock||l>=10?"disabled":""} onclick="act('pet',{id:'${k}'})">${lock?"🔒 ур."+p.u:l>=10?"MAX":(l?"⬆️ ":"Взять ")+cost(S.pnext[k])}</button></div>`}).join("")}</div>`,
+hero:()=>`<div class="card"><b>🧔 ${esc(S.name)}</b> — ур. ${S.lvl}${bar(S.hp/S.maxhp,"#ff4d4d")}<small>❤️ ${S.hp}/${S.maxhp} (регенерация идёт сама) · ⚔️ урон ${S.dmg} · 🍀 удача ${S.luck}%</small></div>
+<div class="card"><b>✨ Навыки</b> (очков: ${S.pts})${[["str","💪 Сила (+2 урона)"],["spd","⚡ Скорость добычи"],["luck","🍀 Удача (+2%)"],["cap","📦 Вместимость склада"]].map(([k,n])=>`<div class="row ln"><div style="flex:1">${n}: <b>${S.sk[k]}</b></div><button class="btn" ${S.pts<1?"disabled":""} onclick="act('skill',{stat:'${k}'})">+</button></div>`).join("")}</div>
+<div class="card"><b>🔄 Перерождение</b> <small>(перерождений: ${S.prestige}, бонус к доходу +${S.pbonus}%)</small><br><small>С ур. ${M.PLVL} можно начать заново: уровень, ресурсы, ферма и здания сбросятся, но доход навсегда +10%, а ещё дадут золото, 💎 и очки навыков.</small><button class="btn full" style="margin-top:6px" ${S.lvl<M.PLVL?"disabled":""} onclick="prestige()">${S.lvl<M.PLVL?"🔒 ур."+M.PLVL:"Переродиться"}</button></div>
+${F?fight():""}
+<div class="card"><b>⚔️ Противники</b>${Object.entries(M.ENEMY).map(([k,e])=>`<div class="row ln"><div style="font-size:30px">${e[1]}</div><div style="flex:1"><b>${e[0]}</b><br><small>❤️${e[2]} · 🗡️${e[3]} · 🪙${e[4]}</small></div><button class="btn" ${S.lvl<e[6]||S.hp<10?"disabled":""} onclick="act('attack',{id:'${k}'})">${S.lvl<e[6]?"🔒 ур."+e[6]:"В бой"}</button></div>`).join("")}</div>`,
+shop:()=>`<div class="card"><b>🛒 Магазин</b></div>`+Object.entries(M.SHOP).map(([i,it])=>{const own=it.k=="weapon"&&S.weapons.includes(it.v),lock=S.lvl<it.u,away=it.k=="dealer"&&!(S.event&&S.event.id=="dealer");if(away)return"";return`<div class="card row"><div style="font-size:30px">${it.e}</div><div style="flex:1"><b>${it.n}</b></div><button class="btn" ${own||lock?"disabled":""} onclick="buy('${i}')">${own?"✔":lock?"🔒 ур."+it.u:cost(it.c)}</button></div>`}).join(""),
+quest:()=>{if(!TOP)loadTop();const row=q=>{const p=Math.min(S.prog[q[2]]||0,q[3]),done=S.claimed.includes(q[0]);return`<div class="card"><b>${q[1]}</b>${bar(p/q[3],"#6bd36b")}<div class="row"><small style="flex:1">${p}/${q[3]} · 🪙${q[4]} · ${q[5]} XP</small><button class="btn" ${done||p<q[3]?"disabled":""} onclick="act('claim',{id:'${q[0]}'})">${done?"✔":"Забрать"}</button></div></div>`};
+return`<div class="card"><b>🎁 Ежедневная награда</b> <small>серия: ${S.streak} дн.</small><br><button class="btn full" style="margin-top:6px" ${S.dclaim?"":"disabled"} onclick="act('daily')">${S.dclaim?"Забрать награду":"Приходи завтра"}</button></div>`+
+`<div class="card"><b>📅 Задания на сегодня</b></div>`+S.dq.map(q=>`<div class="card"><b>${esc(q.t)}</b>${bar(q.p/q.g,"#4dabf7")}<div class="row"><small style="flex:1">${q.p}/${q.g} · 🪙${q.gold} · ${q.xp} XP</small><button class="btn" ${q.done||q.p<q.g?"disabled":""} onclick="act('claim',{id:'${q.id}'})">${q.done?"✔":"Забрать"}</button></div></div>`).join("")+
+`<div class="card"><b>📜 Постоянные задания</b></div>`+M.Q.map(row).join("")+
+`<div class="card"><b>🏅 Достижения</b></div>`+M.ACH.map(row).join("")+
+`<div class="card"><b>🏆 Рейтинг огородников</b> <button class="btn" style="float:right;padding:4px 8px" onclick="loadTop()">🔄</button>${TOP?TOP.map((t,i)=>`<div class="ln">${i+1}. ${esc(t.name)} — <b>${t.score}</b></div>`).join(""):"<div class='ln'>Загрузка...</div>"}</div>`}
+};
+function fight(){const e=M.ENEMY[F.e];
+  return`<div class="card"><b>${e[1]} Бой: ${e[0]}</b>${F.rounds.map((r,i)=>`<div class="ln" style="animation-delay:${i*.25}s">⚔️ ${r[0]}${r[4]?"💥":""} → враг ${r[3]} ❤️ ${r[1]?"| 🩸 -"+r[1]+" → ты "+r[2]:""}</div>`).join("")}
+  <div class="ln" style="animation-delay:${F.rounds.length*.25}s"><b>${F.res=="win"?`🏆 Победа! +${F.gold}🪙 +${F.xp} XP${F.crystal?" +💎":""}`:F.res=="lose"?"💀 Поражение. Отлежись и возвращайся.":"🏃 Враг сбежал."}</b></div></div>`}
+function render(){
+  if(!M||!S)return;
+  $("#nav").innerHTML=TABS.map(t=>`<button class="${t[0]==tab?"on":""}" onclick="tab='${t[0]}';render()">${t[1]}<small>${t[2]}</small></button>`).join("");
+  $("#main").innerHTML=V[tab]();
+}
+async function boot(){
+  $("#main").innerHTML='<div class="card">⏳ Загрузка острова...</div>';
+  const j=await api("bootstrap");
+  if(!j||!j.ok)$("#main").innerHTML=`<div class="card">😵 Не удалось загрузить игру.<br><small>${j?esc(j.error||""):"Нет подключения"}</small><br><br><button class="btn full" onclick="boot()">🔄 Повторить</button></div>`;
+}
+setInterval(()=>{if(M&&tab=="farm"&&!busy)render()},1000);
+setInterval(()=>{if(M&&!document.hidden)api("event")},45000);
+document.addEventListener("visibilitychange",()=>{if(M&&!document.hidden)api("state")});
+boot();
+</script></body></html>
