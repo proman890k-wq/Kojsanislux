@@ -1,0 +1,1047 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0b1026">
+<title>UNO Online</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+:root{
+  --bg0:#05070f; --bg1:#0b1026; --bg2:#151c44; --panel:rgba(255,255,255,.07); --panel2:rgba(255,255,255,.12);
+  --txt:#f2f5ff; --muted:#9aa5d0; --accent:#ffc72e; --good:#1fc46a; --bad:#ff4d5e; --blue:#2f7bff;
+  --cw:clamp(54px,17vw,74px);
+  --safe-t:max(env(safe-area-inset-top,0px),var(--tg-content-safe-area-inset-top,0px));
+  --safe-b:max(env(safe-area-inset-bottom,0px),var(--tg-safe-area-inset-bottom,0px));
+}
+@media (max-height:640px){:root{--cw:clamp(44px,14vw,58px)}}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;overflow:hidden;background:var(--bg0);color:var(--txt);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;touch-action:manipulation;overscroll-behavior:none}
+input{-webkit-user-select:text;user-select:text;font:inherit}
+button{font:inherit;color:inherit;border:0;background:none;cursor:pointer;padding:0}
+#app{position:relative;margin:0 auto;width:min(100vw,480px);height:100vh;height:100dvh;height:var(--tg-viewport-stable-height,100dvh);
+  overflow:hidden;background:radial-gradient(120% 70% at 50% -5%,#1d2766 0%,var(--bg1) 52%,var(--bg0) 100%)}
+@media (min-width:600px){
+  body{display:flex;align-items:center;justify-content:center;background:#02030a}
+  #app{height:min(100dvh,900px);border-radius:28px;box-shadow:0 30px 80px rgba(0,0,0,.7),0 0 0 1px rgba(255,255,255,.06)}
+}
+#screen{position:absolute;inset:var(--safe-t) 0 0 0;display:flex;flex-direction:column}
+.screen{flex:1;min-height:0;display:flex;flex-direction:column;padding:12px 16px calc(var(--safe-b) + 14px);animation:fadeIn .25s ease}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+/* ---------- общие элементы ---------- */
+.btn{display:flex;align-items:center;justify-content:center;gap:8px;min-height:52px;padding:0 18px;border-radius:16px;
+  font-weight:700;font-size:17px;background:var(--panel2);border:1px solid rgba(255,255,255,.1);transition:transform .12s,filter .12s,opacity .12s}
+.btn:active{transform:scale(.97)}
+.btn.primary{background:linear-gradient(180deg,#ffd75a,#ffb300);color:#2a1d00;border-color:#ffe28a;box-shadow:0 6px 18px rgba(255,179,0,.3)}
+.btn.blue{background:linear-gradient(180deg,#4a90ff,#1f5fe0);border-color:#7db0ff;box-shadow:0 6px 18px rgba(47,123,255,.3)}
+.btn.green{background:linear-gradient(180deg,#2fd47c,#12994f);border-color:#6df0a8}
+.btn.red{background:linear-gradient(180deg,#ff6676,#d1243a);border-color:#ff9aa5}
+.btn.small{min-height:40px;font-size:14px;border-radius:12px;padding:0 12px}
+.btn[disabled]{opacity:.4;pointer-events:none}
+.icon-btn{width:40px;height:40px;border-radius:12px;background:var(--panel2);display:flex;align-items:center;justify-content:center;font-size:18px}
+.stack{display:flex;flex-direction:column;gap:12px}
+.row{display:flex;align-items:center;gap:10px}
+.grow{flex:1;min-width:0}
+.muted{color:var(--muted)}
+.chip{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:999px;background:var(--panel);font-size:12px;color:var(--muted);white-space:nowrap}
+.card-panel{background:var(--panel);border:1px solid rgba(255,255,255,.08);border-radius:18px;padding:14px}
+.spinner{width:42px;height:42px;border-radius:50%;border:4px solid rgba(255,255,255,.15);border-top-color:var(--accent);animation:spin .9s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.center-col{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;text-align:center;padding:24px}
+.big-emoji{font-size:56px}
+.title{font-size:22px;font-weight:800}
+h3{margin:0 0 8px;font-size:15px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.06em}
+
+/* ---------- аватары ---------- */
+.avatar{position:relative;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;color:#fff;overflow:hidden;flex:none;border:2px solid rgba(255,255,255,.25)}
+.avatar img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+
+/* ---------- главное меню ---------- */
+.logo{display:flex;flex-direction:column;align-items:center;margin:4px 0 14px}
+.logo-row{display:flex;gap:8px;transform:rotate(-4deg)}
+.logo-row span{width:64px;height:86px;border-radius:14px;border:4px solid #fff;display:flex;align-items:center;justify-content:center;
+  font-size:46px;font-weight:900;font-style:italic;box-shadow:0 10px 24px rgba(0,0,0,.5);color:#fff;text-shadow:0 3px 0 rgba(0,0,0,.25)}
+.logo-row span:nth-child(1){background:linear-gradient(150deg,#ff5a68,#c8102e);transform:rotate(-6deg)}
+.logo-row span:nth-child(2){background:linear-gradient(150deg,#ffd75a,#e09a00);transform:translateY(-4px)}
+.logo-row span:nth-child(3){background:linear-gradient(150deg,#4a90ff,#1649b8);transform:rotate(6deg)}
+.logo small{margin-top:10px;letter-spacing:.5em;font-size:12px;color:var(--muted);font-weight:700}
+.profile{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+.profile .nm{font-weight:800;font-size:18px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.menu-btns{display:flex;flex-direction:column;gap:10px;flex:1;justify-content:center}
+.menu-btns .btn{min-height:56px;justify-content:flex-start;padding-left:20px}
+
+/* ---------- листы (модальные окна) ---------- */
+#sheet:empty{display:none}
+.backdrop{position:absolute;inset:0;z-index:40;background:rgba(2,4,12,.66);display:flex;align-items:flex-end;animation:fadeBg .2s}
+@keyframes fadeBg{from{opacity:0}to{opacity:1}}
+.sheet{width:100%;max-height:92%;display:flex;flex-direction:column;background:linear-gradient(180deg,#1a2255,#10173b);
+  border-radius:26px 26px 0 0;border:1px solid rgba(255,255,255,.1);border-bottom:0;animation:slideUp .25s cubic-bezier(.2,.8,.2,1)}
+@keyframes slideUp{from{transform:translateY(60px);opacity:.4}to{transform:none;opacity:1}}
+.sheet-head{display:flex;align-items:center;justify-content:space-between;padding:16px 18px 8px}
+.sheet-title{font-size:20px;font-weight:800}
+.sheet-body{overflow-y:auto;padding:8px 18px calc(var(--safe-b) + 18px);display:flex;flex-direction:column;gap:14px}
+.field label{display:block;font-size:13px;color:var(--muted);margin:0 0 6px;font-weight:600}
+.field input[type=text],.field input[type=password]{width:100%;height:50px;border-radius:14px;border:1px solid rgba(255,255,255,.14);
+  background:rgba(0,0,0,.28);color:var(--txt);padding:0 14px;font-size:17px;outline:none}
+.field input:focus{border-color:var(--accent)}
+.seg{display:flex;gap:6px}
+.seg button{flex:1;height:44px;border-radius:12px;background:var(--panel);border:1px solid rgba(255,255,255,.08);font-weight:700}
+.seg button.on{background:linear-gradient(180deg,#ffd75a,#ffb300);color:#2a1d00;border-color:#ffe28a}
+.toggle{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:48px}
+.toggle .sw{width:52px;height:30px;border-radius:999px;background:rgba(255,255,255,.18);position:relative;transition:background .2s;flex:none}
+.toggle .sw::after{content:"";position:absolute;left:3px;top:3px;width:24px;height:24px;border-radius:50%;background:#fff;transition:transform .2s}
+.toggle.on .sw{background:var(--good)}
+.toggle.on .sw::after{transform:translateX(22px)}
+.toggle small{display:block;color:var(--muted);font-size:12px;margin-top:2px}
+.room-item{display:flex;align-items:center;gap:10px;padding:12px;border-radius:14px;background:var(--panel);border:1px solid rgba(255,255,255,.08);text-align:left;width:100%}
+.room-item .nm{font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.badge{font-size:11px;font-weight:700;padding:3px 8px;border-radius:999px;background:rgba(31,196,106,.2);color:#6df0a8}
+.badge.busy{background:rgba(255,199,46,.18);color:#ffd75a}
+
+/* ---------- лобби ---------- */
+.lobby-head{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.lobby-head .t{font-size:20px;font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.codebox{display:flex;align-items:center;gap:10px;justify-content:space-between}
+.code{font-size:36px;font-weight:900;letter-spacing:.18em;color:var(--accent);font-variant-numeric:tabular-nums}
+.plist{flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:8px;margin:12px 0}
+.prow{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:14px;background:var(--panel);border:1px solid rgba(255,255,255,.07)}
+.prow.empty{border-style:dashed;color:var(--muted);justify-content:center;background:transparent;min-height:64px}
+.prow .nm{font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.prow .sub{font-size:12px;color:var(--muted)}
+.prow.off{opacity:.55}
+
+/* ---------- игровое поле ---------- */
+.game{flex:1;min-height:0;display:flex;flex-direction:column;position:relative;padding-bottom:calc(var(--safe-b) + 6px)}
+.topbar{display:flex;align-items:center;gap:8px;padding:8px 12px 4px}
+.topbar .rc{flex:1;min-width:0;display:flex;flex-direction:column;line-height:1.15}
+.topbar .rn{font-weight:800;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.topbar .rcode{font-size:11px;color:var(--muted);letter-spacing:.12em}
+.opps{display:flex;justify-content:center;gap:10px;padding:2px 8px;min-height:92px}
+.opp{flex:1;max-width:150px;display:flex;flex-direction:column;align-items:center;gap:3px;position:relative;padding:4px 0}
+.ring{--p:0;--rc:var(--good);border-radius:50%;padding:3px;background:conic-gradient(var(--rc) calc(var(--p)*1%),rgba(255,255,255,.12) 0);transition:filter .2s}
+.ring.urgent{--rc:var(--bad)}
+.opp.turn .ring{filter:drop-shadow(0 0 10px rgba(255,199,46,.9))}
+.opp.turn .ring{--rc:var(--accent)}
+.opp .nm{font-size:12px;font-weight:700;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.opp .meta{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--muted)}
+.cnt{display:inline-flex;align-items:center;gap:3px;background:rgba(0,0,0,.4);border-radius:999px;padding:1px 8px;font-weight:800;color:#fff;font-size:12px}
+.minis{display:flex;height:14px}
+.mini{width:10px;height:14px;border-radius:2px;background:linear-gradient(135deg,#ff3d4f,#ff8a3d);border:1px solid #fff;margin-left:-5px}
+.mini:first-child{margin-left:0}
+.opp.gone{opacity:.5}
+.tag{position:absolute;top:0;right:4px;font-size:10px;font-weight:800;padding:2px 6px;border-radius:999px;background:var(--bad);color:#fff}
+.tag.uno{background:var(--accent);color:#2a1d00}
+.catch-btn{position:absolute;bottom:-6px;z-index:5;padding:6px 12px;border-radius:999px;background:linear-gradient(180deg,#ff6676,#d1243a);
+  font-weight:900;font-size:12px;border:2px solid #fff;animation:pulse .6s infinite alternate}
+.table{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;gap:clamp(14px,6vw,30px);position:relative}
+.table::before{content:"";position:absolute;width:min(86%,330px);aspect-ratio:1;border-radius:50%;
+  background:radial-gradient(circle,rgba(47,123,255,.16),rgba(47,123,255,0) 68%);pointer-events:none}
+.dir{position:absolute;font-size:30px;color:rgba(255,255,255,.2);pointer-events:none;animation:spin 8s linear infinite}
+.dir.ccw{animation-direction:reverse}
+.deckwrap,.pilewrap{position:relative;display:flex;flex-direction:column;align-items:center;gap:6px}
+.deck{position:relative;cursor:pointer}
+.deck.can{animation:pulse .8s infinite alternate;filter:drop-shadow(0 0 10px rgba(255,199,46,.8))}
+.deck .stackfx{position:absolute;inset:0;border-radius:calc(var(--cw)*.14);background:#10173b;border:2px solid #fff;transform:translate(3px,3px);z-index:-1}
+.deck .n{position:absolute;bottom:-20px;left:0;right:0;text-align:center;font-size:11px;color:var(--muted)}
+.pile{position:relative}
+.pile .ringc{position:absolute;inset:-9px;border-radius:calc(var(--cw)*.24);border:4px solid var(--cc,#fff);box-shadow:0 0 24px var(--cc,#fff),inset 0 0 14px var(--cc,#fff);transition:border-color .3s,box-shadow .3s}
+.cname{font-size:12px;font-weight:800;margin-top:12px;padding:2px 10px;border-radius:999px;background:rgba(0,0,0,.4)}
+.status{text-align:center;font-size:14px;font-weight:700;min-height:20px;padding:0 12px;margin-bottom:2px}
+.status.mine{color:var(--accent)}
+.mebar{display:flex;align-items:center;gap:10px;padding:2px 12px}
+.mebar .nm{font-weight:800;font-size:14px}
+.tbar{flex:1;height:6px;border-radius:99px;background:rgba(255,255,255,.12);overflow:hidden}
+.tbar i{display:block;height:100%;width:calc(var(--p,0)*1%);background:var(--good);border-radius:99px}
+.tbar.urgent i{background:var(--bad)}
+.actions{display:flex;gap:8px;padding:6px 12px}
+.actions .btn{flex:1;min-height:48px;font-size:15px}
+.unobtn{flex:0 0 96px!important;background:linear-gradient(180deg,#ff6676,#d1243a)!important;border:2px solid #fff!important;font-weight:900;font-size:20px!important;letter-spacing:.04em}
+.unobtn.pulse{animation:pulse .5s infinite alternate}
+.hand-scroll{overflow-x:auto;overflow-y:hidden;padding:20px 8px 6px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.hand-scroll::-webkit-scrollbar{display:none}
+.hand{display:flex;align-items:flex-end;min-height:calc(var(--cw)*1.5)}
+.hand .card{cursor:pointer}
+.hand .card.playable{transform:translateY(-8px);box-shadow:0 0 0 2px var(--accent),0 0 16px rgba(255,199,46,.7),0 6px 12px rgba(0,0,0,.5)}
+.hand .card.dim{filter:brightness(.5) saturate(.6)}
+.hand .card.selected{transform:translateY(-22px) scale(1.06);z-index:5}
+.hand .card.newcard{animation:dealIn .45s cubic-bezier(.2,.8,.2,1) both}
+.hand .card.shake{animation:shake .3s}
+@keyframes dealIn{from{transform:translate(0,-240px) scale(.5) rotate(-12deg);opacity:0}to{transform:none;opacity:1}}
+@keyframes shake{25%{translate:-6px 0}75%{translate:6px 0}}
+@keyframes pulse{from{transform:scale(1)}to{transform:scale(1.07)}}
+@keyframes pop{0%{transform:scale(.4);opacity:0}20%{transform:scale(1.15);opacity:1}80%{transform:scale(1);opacity:1}100%{transform:scale(1.05) translateY(-20px);opacity:0}}
+@keyframes flash{0%{opacity:.5}100%{opacity:0}}
+
+/* ---------- карты ---------- */
+.card{--c1:#555;--c2:#333;--cc:#333;position:relative;width:var(--cw);height:calc(var(--cw)*1.5);border-radius:calc(var(--cw)*.14);
+  background:linear-gradient(150deg,var(--c1),var(--c2));border:calc(var(--cw)*.05) solid #fff;box-shadow:0 4px 10px rgba(0,0,0,.45);
+  flex:none;overflow:hidden;color:#fff;font-weight:900;transition:transform .18s,filter .18s,box-shadow .18s}
+.card::before{content:"";position:absolute;left:-18%;right:-18%;top:20%;bottom:20%;background:#fff;border-radius:50%;transform:rotate(-28deg)}
+.card .center{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--cc);font-size:calc(var(--cw)*.5);font-style:italic;letter-spacing:-.04em}
+.card .corner{position:absolute;font-size:calc(var(--cw)*.21);line-height:1;text-shadow:0 1px 2px rgba(0,0,0,.4)}
+.card .tl{left:calc(var(--cw)*.07);top:calc(var(--cw)*.05)}
+.card .br{right:calc(var(--cw)*.07);bottom:calc(var(--cw)*.05);transform:rotate(180deg)}
+.c-R{--c1:#ff5a68;--c2:#c8102e;--cc:#d8182f}
+.c-B{--c1:#4a90ff;--c2:#1649b8;--cc:#1f5fe0}
+.c-G{--c1:#2fd47c;--c2:#0d8a47;--cc:#12994f}
+.c-Y{--c1:#ffd75a;--c2:#e09a00;--cc:#d98f00}
+.c-W{--c1:#2a2f45;--c2:#0a0d19}
+.c-W::before{background:conic-gradient(#ff3d4f 0 25%,#ffc72e 0 50%,#1fc46a 0 75%,#2f7bff 0)}
+.c-W .center{color:#fff;text-shadow:0 2px 5px rgba(0,0,0,.7)}
+.card.back{background:radial-gradient(circle at 50% 35%,#2b3568,#0b1030)}
+.card.back::before{background:linear-gradient(135deg,#ff3d4f,#ff8a3d)}
+.card.back .center{color:#fff;font-size:calc(var(--cw)*.3);text-shadow:0 2px 4px rgba(0,0,0,.5)}
+.card.flying{position:fixed;transform-origin:0 0;pointer-events:none}
+
+/* ---------- слой эффектов ---------- */
+#fx{position:fixed;inset:0;pointer-events:none;z-index:70;overflow:hidden}
+.banner{position:absolute;left:50%;top:42%;transform:translate(-50%,-50%);padding:10px 22px;border-radius:20px;font-size:26px;font-weight:900;
+  background:rgba(8,12,34,.86);border:3px solid var(--bc,#fff);color:var(--bc,#fff);box-shadow:0 0 30px var(--bc,#fff);animation:pop 1.25s ease forwards;
+  white-space:nowrap;max-width:94vw;overflow:hidden;text-overflow:ellipsis}
+.flash{position:absolute;inset:0;animation:flash .7s ease forwards}
+#toast{position:absolute;top:calc(var(--safe-t) + 8px);left:0;right:0;z-index:80;display:flex;flex-direction:column;align-items:center;gap:6px;pointer-events:none}
+.toast{padding:9px 16px;border-radius:14px;background:rgba(10,14,38,.94);border:1px solid rgba(255,255,255,.18);font-size:14px;font-weight:600;
+  max-width:92%;text-align:center;animation:fadeIn .2s}
+.toast.err{border-color:var(--bad);color:#ffb3bb}
+.toast.ok{border-color:var(--good)}
+#conn{position:absolute;inset:0;z-index:90;background:rgba(3,5,14,.82);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;text-align:center;padding:30px}
+#conn[hidden]{display:none}
+
+/* ---------- итоги раунда ---------- */
+.results{position:absolute;inset:0;z-index:30;background:rgba(3,5,14,.84);display:flex;flex-direction:column;justify-content:center;padding:16px;animation:fadeBg .3s;overflow-y:auto}
+.res-card{background:linear-gradient(180deg,#1a2255,#10173b);border:1px solid rgba(255,255,255,.12);border-radius:24px;padding:16px;display:flex;flex-direction:column;gap:12px}
+.crown{font-size:48px;text-align:center;animation:pop2 1s ease}
+@keyframes pop2{from{transform:scale(.3) rotate(-20deg)}to{transform:none}}
+.res-title{text-align:center;font-size:22px;font-weight:900}
+.res-row{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:12px;background:var(--panel)}
+.res-row.win{background:rgba(255,199,46,.15);border:1px solid rgba(255,199,46,.5)}
+.res-row .pts{font-weight:900;color:var(--accent)}
+.prog{height:5px;border-radius:99px;background:rgba(255,255,255,.12);overflow:hidden;margin-top:4px}
+.prog i{display:block;height:100%;background:linear-gradient(90deg,#2fd47c,#ffc72e)}
+
+/* ---------- статистика ---------- */
+.stat-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.stat{padding:12px;border-radius:14px;background:var(--panel);text-align:center}
+.stat b{display:block;font-size:26px}
+.stat span{font-size:12px;color:var(--muted)}
+.lb-row{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:12px;background:var(--panel)}
+.lb-row.you{background:rgba(255,199,46,.14);border:1px solid rgba(255,199,46,.5)}
+.lb-row .rk{width:24px;text-align:center;font-weight:900;color:var(--muted)}
+.scroll{flex:1;min-height:0;overflow-y:auto}
+.busy .btn,.busy .deck,.busy .card{pointer-events:none}
+@media (prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+body.lite *{animation-duration:.01ms!important}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="screen"></div>
+  <div id="sheet"></div>
+  <div id="toast"></div>
+  <div id="conn" hidden><div class="spinner"></div><div class="title" id="conn-title">Соединение потеряно</div><div class="muted" id="conn-text">Пытаемся переподключиться…</div></div>
+</div>
+<div id="fx"></div>
+
+<script>
+'use strict';
+(() => {
+/* =========================================================================
+   НАСТРОЙКА. Меняется только этот блок.
+   ========================================================================= */
+const CONFIG = {
+  // Адрес Python-сервера. Пустая строка = тот же хост, который отдал эту страницу
+  // (когда server.py отдаёт index.html сам). Для GitHub Pages укажите, например:
+  // "wss://my-uno-server.onrender.com"
+  SERVER_URL: "",
+  // Ссылка на Mini App в Telegram для приглашений (https://t.me/<бот>/<короткое_имя_приложения>)
+  BOT_LINK: "https://t.me/YOUR_BOT/app",
+  // Тестовый вход без Telegram (?dev=123&name=Имя). Сервер тоже должен быть запущен с DEV_MODE=1.
+  ALLOW_DEV: false,
+};
+
+/* ========================= утилиты ========================= */
+const tg = window.Telegram && window.Telegram.WebApp;
+const $ = (s, r = document) => r.querySelector(s);
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const COLOR_NAMES = { R: 'Красный', B: 'Синий', G: 'Зелёный', Y: 'Жёлтый' };
+const COLOR_HEX = { R: '#ff4d5e', B: '#4a90ff', G: '#2fd47c', Y: '#ffd75a' };
+const DIFF_NAMES = { easy: 'Лёгкий', normal: 'Средний', hard: 'Сильный' };
+
+function h(tag, props, ...kids) {
+  const e = document.createElement(tag);
+  if (props) for (const [k, v] of Object.entries(props)) {
+    if (v == null || v === false) continue;
+    if (k === 'class') e.className = v;
+    else if (k === 'style') e.style.cssText = v;
+    else if (k.startsWith('on')) e.addEventListener(k.slice(2).toLowerCase(), v);
+    else e.setAttribute(k, v === true ? '' : v);
+  }
+  for (const c of kids.flat(Infinity)) {
+    if (c == null || c === false) continue;
+    e.append(c.nodeType ? c : document.createTextNode(String(c)));
+  }
+  return e;
+}
+const now = () => Date.now() / 1000 + S.offset;
+
+/* ========================= настройки на устройстве ========================= */
+const Settings = {
+  sound: true, lite: window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches, vibrate: true,
+  load() { try { Object.assign(this, JSON.parse(localStorage.getItem('uno_settings_v1') || '{}')); } catch (e) {} this.apply(); },
+  save() { try { localStorage.setItem('uno_settings_v1', JSON.stringify({ sound: this.sound, lite: this.lite, vibrate: this.vibrate })); } catch (e) {} this.apply(); },
+  apply() { document.body.classList.toggle('lite', !!this.lite); },
+};
+
+/* ========================= звук (синтез, без файлов) ========================= */
+const Snd = {
+  ctx: null,
+  ensure() {
+    if (!Settings.sound) return null;
+    try {
+      if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+      if (this.ctx.state === 'suspended') this.ctx.resume();
+    } catch (e) { return null; }
+    return this.ctx;
+  },
+  tone(f, d, type = 'sine', vol = 0.14, delay = 0, slide = 0) {
+    const c = this.ensure(); if (!c) return;
+    const t = c.currentTime + delay, o = c.createOscillator(), g = c.createGain();
+    o.type = type; o.frequency.setValueAtTime(f, t);
+    if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(40, f + slide), t + d);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + d);
+    o.connect(g).connect(c.destination); o.start(t); o.stop(t + d + 0.02);
+  },
+  play(n) {
+    if (!Settings.sound) return;
+    switch (n) {
+      case 'play': this.tone(520, .08, 'triangle', .16); this.tone(700, .1, 'triangle', .14, .05); break;
+      case 'draw': this.tone(300, .12, 'sine', .14, 0, -120); break;
+      case 'deal': for (let i = 0; i < 5; i++) this.tone(380 + i * 40, .06, 'triangle', .09, i * .06); break;
+      case 'uno': this.tone(520, .12, 'square', .1); this.tone(660, .12, 'square', .1, .1); this.tone(880, .22, 'square', .1, .2); break;
+      case 'turn': this.tone(880, .09, 'sine', .1); this.tone(1175, .12, 'sine', .08, .08); break;
+      case 'penalty': this.tone(300, .2, 'sawtooth', .1, 0, -150); this.tone(200, .25, 'sawtooth', .1, .12, -100); break;
+      case 'color': this.tone(600, .1, 'sine', .12); this.tone(800, .1, 'sine', .12, .08); this.tone(1000, .14, 'sine', .12, .16); break;
+      case 'win': [523, 659, 784, 1046].forEach((f, i) => this.tone(f, .22, 'triangle', .15, i * .12)); break;
+      case 'lose': [400, 330, 262].forEach((f, i) => this.tone(f, .28, 'sine', .13, i * .16)); break;
+      case 'error': this.tone(180, .16, 'square', .08); break;
+      case 'click': this.tone(640, .04, 'sine', .08); break;
+    }
+  },
+};
+function vib(kind) {
+  if (!Settings.vibrate) return;
+  try {
+    const hf = tg && tg.HapticFeedback;
+    if (hf) { if (kind === 'error') hf.notificationOccurred('error'); else if (kind === 'ok') hf.notificationOccurred('success'); else hf.impactOccurred('light'); }
+    else if (navigator.vibrate) navigator.vibrate(kind === 'error' ? 60 : 15);
+  } catch (e) {}
+}
+
+/* ========================= состояние ========================= */
+const S = {
+  screen: 'loading', loadingMsg: 'Загрузка…', errorMsg: '', errorEmoji: '⚠️', retry: null,
+  user: null, profile: null, room: null, rooms: [], stats: null, config: {}, offset: 0,
+  authed: false, lastEid: 0, lastRoom: null, startParam: null,
+};
+const ui = { busy: false, selected: null, prevHand: null, dealAnim: false, pileHold: 0, pileTopPrev: null, overlapping: false, roomsTimer: null, sheetClose: null };
+
+/* ========================= сеть ========================= */
+function wsUrl() {
+  if (CONFIG.SERVER_URL) return CONFIG.SERVER_URL.replace(/\/+$/, '').replace(/^http/, 'ws') + '/ws';
+  return (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws';
+}
+function healthUrl() {
+  if (CONFIG.SERVER_URL) return CONFIG.SERVER_URL.replace(/\/+$/, '').replace(/^ws/, 'http') + '/health';
+  return location.origin + '/health';
+}
+function devUser() {
+  if (!CONFIG.ALLOW_DEV) return null;
+  const p = new URLSearchParams(location.search), id = parseInt(p.get('dev') || '', 10);
+  return id > 0 ? { id, name: (p.get('name') || ('Игрок ' + id)).slice(0, 24) } : null;
+}
+
+const Net = {
+  ws: null, attempt: 0, retryTimer: null, pingTimer: null, pending: new Map(), stopped: false, seq: 0, everAuthed: false,
+  connect() {
+    if (this.ws && this.ws.readyState <= 1) return;
+    let ws;
+    try { ws = new WebSocket(wsUrl()); } catch (e) { this.scheduleRetry(); return; }
+    this.ws = ws;
+    ws.onopen = () => {
+      this.sendRaw({ type: 'auth', init_data: (tg && tg.initData) || undefined, dev_user: devUser() || undefined });
+      clearInterval(this.pingTimer);
+      this.pingTimer = setInterval(() => this.sendRaw({ type: 'ping' }), 20000);
+    };
+    ws.onmessage = ev => { let m; try { m = JSON.parse(ev.data); } catch (e) { return; } handleMsg(m); };
+    ws.onclose = ev => {
+      if (this.ws !== ws) return;
+      this.ws = null; clearInterval(this.pingTimer); this.failPending(); S.authed = false;
+      if (this.stopped) return;
+      if (ev.code === 4003) return this.fatal('🚫', 'Сервер не принимает подключения с этой страницы. Администратору: проверьте ALLOWED_ORIGINS.');
+      if (ev.code === 4002) return;
+      this.scheduleRetry();
+    };
+    ws.onerror = () => {};
+  },
+  scheduleRetry() {
+    clearTimeout(this.retryTimer);
+    this.attempt++;
+    if (!this.everAuthed && this.attempt > 5) {
+      return this.fatal('📡', 'Не удалось подключиться к серверу. Проверьте интернет и попробуйте ещё раз.', true);
+    }
+    showConn(this.everAuthed ? 'Соединение потеряно' : 'Подключаемся…', 'Переподключение, попытка ' + this.attempt + '…');
+    this.retryTimer = setTimeout(() => this.connect(), Math.min(800 * Math.pow(1.6, this.attempt - 1), 8000));
+  },
+  fatal(emoji, msg, canRetry) {
+    this.stopped = true; hideConn();
+    S.screen = 'error'; S.errorEmoji = emoji; S.errorMsg = msg;
+    S.retry = canRetry ? () => { this.stopped = false; this.attempt = 0; boot(); } : null;
+    render();
+  },
+  sendRaw(o) { if (this.ws && this.ws.readyState === 1) { this.ws.send(JSON.stringify(o)); return true; } return false; },
+  request(type, data) {
+    return new Promise(resolve => {
+      const id = 'r' + (++this.seq) + Math.random().toString(36).slice(2, 8);
+      if (!this.sendRaw({ type, req_id: id, ...data })) return resolve({ ok: false, message: 'Нет соединения с сервером' });
+      const t = setTimeout(() => { this.pending.delete(id); resolve({ ok: false, message: 'Сервер не отвечает' }); }, 8000);
+      this.pending.set(id, r => { clearTimeout(t); resolve(r); });
+    });
+  },
+  failPending() { for (const f of this.pending.values()) f({ ok: false, message: 'Соединение потеряно' }); this.pending.clear(); },
+};
+
+async function act(type, data = {}, quiet = false) {
+  if (ui.busy) return { ok: false, busy: true };
+  ui.busy = true; document.body.classList.add('busy');
+  try {
+    const r = await Net.request(type, data);
+    if (!r.ok && !quiet) { toast(r.message || 'Ошибка', 'err'); Snd.play('error'); vib('error'); }
+    return r;
+  } finally { ui.busy = false; document.body.classList.remove('busy'); }
+}
+
+function handleMsg(m) {
+  switch (m.type) {
+    case 'ack': case 'error': {
+      const f = m.req_id && Net.pending.get(m.req_id);
+      if (f) { Net.pending.delete(m.req_id); f({ ok: m.type === 'ack', code: m.code, message: m.message }); }
+      else if (m.type === 'error' && m.message) toast(m.message, 'err');
+      break;
+    }
+    case 'auth_ok': onAuth(m); break;
+    case 'auth_error': Net.stopped = true; Net.fatal('🔒', m.message || 'Ошибка авторизации'); break;
+    case 'replaced': Net.stopped = true; Net.fatal('📱', 'Игра открыта в другом окне. Закройте его или перезапустите приложение.', true); break;
+    case 'room_state': onRoomState(m.room); break;
+    case 'left_room': onLeft(m.reason); break;
+    case 'rooms': S.rooms = m.rooms || []; if ($('#rooms-list')) fillRooms(); break;
+    case 'profile': S.profile = m.profile; if (!S.room) render(); break;
+    case 'stats': S.stats = m; S.profile = m.profile; if (S.screen === 'stats' && !S.room) render(); break;
+    case 'quick_none':
+      confirmDialog('Свободных публичных комнат нет. Создать новую?', 'Создать', () => openCreate(true)); break;
+    case 'pong': break;
+  }
+}
+
+function onAuth(m) {
+  Net.attempt = 0; Net.everAuthed = true; S.authed = true; hideConn();
+  S.user = m.user; S.profile = m.profile; S.config = m.config || {};
+  S.offset = m.server_time - Date.now() / 1000;
+  if (m.room) { S.screen = 'menu'; applyRoom(m.room, false); }
+  else {
+    S.room = null; S.screen = 'menu'; render();
+    if (S.startParam) { const c = S.startParam; S.startParam = null; openJoin(c); }
+  }
+}
+
+/* ========================= применение состояния комнаты ========================= */
+function nameOf(pid) { const p = S.room && S.room.players.find(x => x.id === pid); return p ? p.name : 'Игрок'; }
+function onRoomState(room) { applyRoom(room, true); }
+
+function applyRoom(room, live) {
+  S.offset = room.server_time - Date.now() / 1000;
+  if (S.lastRoom !== room.code) { S.lastEid = 0; S.lastRoom = room.code; ui.prevHand = null; ui.selected = null; }
+  if (!S.room) closeSheet();
+  const prev = S.room;
+  const evs = (room.events || []).filter(e => e.eid > S.lastEid);
+  evs.forEach(e => { S.lastEid = Math.max(S.lastEid, e.eid); });
+  // координаты «откуда летит карта» нужно снять до перерисовки
+  const from = {};
+  if (live) for (const e of evs) {
+    if (e.t === 'play') {
+      const mine = e.pid === room.you;
+      const el = mine ? document.querySelector(`.hand [data-cid="${e.card.id}"]`) : document.querySelector(`[data-ring="${e.pid}"]`);
+      if (el) from[e.eid] = { rect: el.getBoundingClientRect(), mine };
+    }
+  }
+  const prevTop = prev && prev.game ? prev.game.top : null;
+  if (evs.some(e => e.t === 'deal')) { ui.dealAnim = true; ui.prevHand = null; }
+  S.room = room;
+  if (prev && prev.status === 'playing' && prev.game && room.game && prev.game.turn !== room.you && room.game.turn === room.you && room.status === 'playing') {
+    Snd.play('turn'); vib('light');
+  }
+  if (live) for (const e of evs) if (e.t === 'play' && !Settings.lite) { ui.pileTopPrev = prevTop; ui.pileHold = performance.now() + 380; setTimeout(render, 400); }
+  if (tg) { try { room.status === 'playing' ? tg.enableClosingConfirmation() : tg.disableClosingConfirmation(); } catch (e) {} }
+  render();
+  if (live) runEffects(evs, from);
+  ui.dealAnim = false;
+}
+
+function onLeft(reason) {
+  S.room = null; S.lastRoom = null; ui.selected = null; closeSheet();
+  const msg = { kicked: 'Владелец исключил вас из комнаты', closed: 'Комната закрыта', idle: 'Комната закрыта из-за бездействия' }[reason];
+  if (msg) toast(msg, 'err');
+  if (tg) { try { tg.disableClosingConfirmation(); } catch (e) {} }
+  S.screen = 'menu'; render();
+}
+
+/* ========================= эффекты, анимации ========================= */
+function rectCenter(r, w) { const hgt = w * 1.5; return { left: r.left + r.width / 2 - w / 2, top: r.top + r.height / 2 - hgt / 2, width: w, height: hgt }; }
+function fly(from, to, opt = {}) {
+  if (Settings.lite || !from || !to) return;
+  const dur = opt.dur || 380, delay = opt.delay || 0;
+  const el = opt.card ? cardEl(opt.card) : cardEl(null, true);
+  el.classList.add('flying');
+  el.style.cssText = `--cw:${from.width}px;left:${from.left}px;top:${from.top}px;margin:0;z-index:60;opacity:${delay ? 0 : 1};transition:transform ${dur}ms cubic-bezier(.2,.8,.2,1) ${delay}ms,opacity 120ms ${delay}ms`;
+  $('#fx').append(el);
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    el.style.opacity = 1;
+    el.style.transform = `translate(${to.left - from.left}px,${to.top - from.top}px) scale(${to.width / from.width})`;
+  }));
+  setTimeout(() => el.remove(), dur + delay + 120);
+}
+function banner(text, color = '#fff') {
+  const b = h('div', { class: 'banner', style: `--bc:${color}` }, text);
+  $('#fx').append(b); setTimeout(() => b.remove(), 1300);
+}
+function colorFlash(color) {
+  if (Settings.lite) return;
+  const f = h('div', { class: 'flash', style: `background:radial-gradient(circle at 50% 45%,${color}99,transparent 70%)` });
+  $('#fx').append(f); setTimeout(() => f.remove(), 750);
+}
+
+function runEffects(evs, from) {
+  const R = S.room; if (!R) return;
+  const pileEl = $('.pile .card'), deckEl = $('.deck');
+  const cw = pileEl ? pileEl.getBoundingClientRect().width : 60;
+  for (const e of evs) {
+    switch (e.t) {
+      case 'deal': Snd.play('deal'); break;
+      case 'play': {
+        Snd.play('play'); vib('light');
+        const f = from[e.eid];
+        if (pileEl && f) fly(f.mine ? f.rect : rectCenter(f.rect, cw * .6), pileEl.getBoundingClientRect(), { card: e.card });
+        break;
+      }
+      case 'color': banner('Цвет: ' + COLOR_NAMES[e.color], COLOR_HEX[e.color]); colorFlash(COLOR_HEX[e.color]); Snd.play('color'); break;
+      case 'skip': banner('Пропуск хода: ' + nameOf(e.pid), '#ffd75a'); break;
+      case 'reverse': banner('Смена направления', '#4a90ff'); break;
+      case 'penalty': {
+        banner(`${nameOf(e.pid)}: +${e.count}`, '#ff6676'); Snd.play('penalty'); vib('error');
+        if (e.pid !== R.you && deckEl) {
+          const av = document.querySelector(`[data-ring="${e.pid}"]`);
+          if (av) for (let i = 0; i < Math.min(e.count, 4); i++) fly(rectCenter(deckEl.getBoundingClientRect(), cw * .8), rectCenter(av.getBoundingClientRect(), cw * .5), { delay: i * 90 });
+        }
+        break;
+      }
+      case 'draw':
+        Snd.play('draw');
+        if (e.pid !== R.you && deckEl) {
+          const av = document.querySelector(`[data-ring="${e.pid}"]`);
+          if (av) fly(rectCenter(deckEl.getBoundingClientRect(), cw * .8), rectCenter(av.getBoundingClientRect(), cw * .5));
+        }
+        break;
+      case 'uno': banner('UNO! ' + nameOf(e.pid), '#ffd75a'); Snd.play('uno'); break;
+      case 'caught': banner(`Пойман! ${nameOf(e.target)} +2`, '#ff6676'); break;
+      case 'timeout': toast('Время вышло: ' + nameOf(e.pid)); break;
+      case 'auto': toast('За игрока ' + nameOf(e.pid) + ' ходит бот'); break;
+      case 'reshuffle': toast('Колода перемешана'); break;
+      case 'joined': toast(e.name + ' в комнате', 'ok'); Snd.play('click'); break;
+      case 'left': toast(e.name + ' вышел'); break;
+      case 'disconnected': if (e.pid !== R.you) toast(nameOf(e.pid) + ': соединение потеряно'); break;
+      case 'reconnected': if (e.pid !== R.you) toast(nameOf(e.pid) + ' вернулся', 'ok'); break;
+      case 'owner': toast(nameOf(e.pid) + ' теперь владелец комнаты'); break;
+      case 'round_end': {
+        const won = e.winner === R.you;
+        Snd.play(won ? 'win' : 'lose'); vib(won ? 'ok' : 'error'); break;
+      }
+    }
+  }
+}
+
+/* ========================= тосты, оверлеи, листы ========================= */
+function toast(msg, kind) {
+  const box = $('#toast');
+  while (box.children.length >= 3) box.firstChild.remove();
+  const t = h('div', { class: 'toast ' + (kind || '') }, msg);
+  box.append(t); setTimeout(() => t.remove(), 2600);
+}
+function showConn(title, text) { $('#conn-title').textContent = title; $('#conn-text').textContent = text || ''; $('#conn').hidden = false; }
+function hideConn() { $('#conn').hidden = true; }
+
+function openSheet(title, body, opts = {}) {
+  closeSheet();
+  const bd = h('div', { class: 'backdrop', onClick: e => { if (e.target === bd && !opts.modal) closeSheet(); } },
+    h('div', { class: 'sheet' },
+      h('div', { class: 'sheet-head' }, h('div', { class: 'sheet-title' }, title),
+        opts.modal ? null : h('button', { class: 'icon-btn', onClick: closeSheet, 'aria-label': 'Закрыть' }, '✕')),
+      h('div', { class: 'sheet-body' }, body)));
+  $('#sheet').replaceChildren(bd);
+  ui.sheetClose = opts.onClose || null;
+  return bd;
+}
+function closeSheet() {
+  clearInterval(ui.roomsTimer);
+  const f = ui.sheetClose; ui.sheetClose = null;
+  $('#sheet').replaceChildren();
+  if (f) f();
+}
+function confirmDialog(text, okLabel, onOk, danger) {
+  openSheet('Подтверждение', [
+    h('div', { style: 'font-size:16px;line-height:1.4' }, text),
+    h('div', { class: 'row' },
+      h('button', { class: 'btn grow', onClick: closeSheet }, 'Отмена'),
+      h('button', { class: 'btn grow ' + (danger ? 'red' : 'primary'), onClick: () => { closeSheet(); onOk(); } }, okLabel))
+  ]);
+}
+
+/* ========================= компоненты ========================= */
+function hueGrad(id) {
+  let x = 0; for (const ch of String(id)) x = (x * 31 + ch.charCodeAt(0)) >>> 0;
+  const hu = x % 360;
+  return `linear-gradient(135deg,hsl(${hu} 70% 52%),hsl(${(hu + 40) % 360} 70% 32%))`;
+}
+function avatar(u, size = 44) {
+  const w = h('div', { class: 'avatar', style: `width:${size}px;height:${size}px;font-size:${Math.round(size * .42)}px;background:${hueGrad(u.id || u.name)}` });
+  if (u.bot) { w.textContent = '🤖'; return w; }
+  w.textContent = (Array.from((u.name || '?').trim())[0] || '?').toUpperCase();
+  if (u.photo) { const img = h('img', { src: u.photo, alt: '', referrerpolicy: 'no-referrer', draggable: 'false' }); img.onerror = () => img.remove(); w.append(img); }
+  return w;
+}
+function symbolOf(v) {
+  switch (v) { case 'skip': return '⊘'; case 'reverse': return '⇄'; case 'draw2': return '+2'; case 'wild': return ''; case 'wild4': return '+4'; default: return v; }
+}
+function cardEl(c, back) {
+  if (back || !c) return h('div', { class: 'card back' }, h('span', { class: 'center' }, 'UNO'));
+  const s = symbolOf(c.value);
+  return h('div', { class: `card c-${c.color}`, 'data-cid': c.id }, h('span', { class: 'corner tl' }, s), h('span', { class: 'center' }, s), h('span', { class: 'corner br' }, s));
+}
+function toggle(label, hint, on, fn) {
+  const el = h('button', { class: 'toggle' + (on ? ' on' : ''), type: 'button' }, h('div', null, label, hint ? h('small', null, hint) : null), h('div', { class: 'sw' }));
+  el.addEventListener('click', () => { const v = !el.classList.contains('on'); el.classList.toggle('on', v); fn(v); });
+  return el;
+}
+function seg(options, value, fn) {
+  const wrap = h('div', { class: 'seg' });
+  options.forEach(([v, label]) => {
+    const b = h('button', { type: 'button', class: v === value ? 'on' : '', onClick: () => { [...wrap.children].forEach(c => c.classList.remove('on')); b.classList.add('on'); fn(v); Snd.play('click'); } }, label);
+    wrap.append(b);
+  });
+  return wrap;
+}
+
+/* ========================= экраны ========================= */
+function paint(node) {
+  const scr = $('#screen');
+  const sc = scr.querySelector('.hand-scroll'), left = sc ? sc.scrollLeft : 0;
+  scr.replaceChildren(node);
+  const sc2 = scr.querySelector('.hand-scroll');
+  layoutHand();
+  if (sc2 && left) sc2.scrollLeft = left;
+  updateTimers();
+}
+function render() {
+  if (S.screen === 'loading') return paint(h('div', { class: 'center-col' }, h('div', { class: 'logo-row', style: 'transform:none' }, h('span', { style: 'width:44px;height:60px;font-size:30px' }, 'U'), h('span', { style: 'width:44px;height:60px;font-size:30px' }, 'N'), h('span', { style: 'width:44px;height:60px;font-size:30px' }, 'O')), h('div', { class: 'spinner' }), h('div', { class: 'muted' }, S.loadingMsg)));
+  if (S.screen === 'error') return paint(h('div', { class: 'center-col' }, h('div', { class: 'big-emoji' }, S.errorEmoji), h('div', { class: 'title' }, 'Не получилось'), h('div', { class: 'muted', style: 'line-height:1.45' }, S.errorMsg), S.retry ? h('button', { class: 'btn primary', onClick: S.retry }, '🔄 Повторить') : null));
+  if (S.room) return paint(S.room.status === 'lobby' ? lobbyView() : gameView());
+  if (S.screen === 'stats') return paint(statsView());
+  if (S.screen === 'settings') return paint(settingsView());
+  paint(menuView());
+}
+function go(screen) {
+  S.screen = screen; render();
+  if (tg && tg.BackButton) { try { screen === 'menu' ? tg.BackButton.hide() : tg.BackButton.show(); } catch (e) {} }
+  if (screen === 'stats') Net.sendRaw({ type: 'get_stats' });
+}
+
+/* ----- меню ----- */
+function menuView() {
+  const p = S.profile || {}, u = S.user || { name: '…' };
+  return h('div', { class: 'screen' },
+    h('div', { class: 'logo' }, h('div', { class: 'logo-row' }, h('span', null, 'U'), h('span', null, 'N'), h('span', null, 'O')), h('small', null, 'ONLINE')),
+    h('div', { class: 'card-panel profile' }, avatar(u, 56),
+      h('div', { class: 'grow' }, h('div', { class: 'nm' }, u.name), h('div', { class: 'muted', style: 'font-size:13px;margin-top:2px' }, `🏆 Побед: ${p.wins || 0} · 🎮 Матчей: ${(p.wins || 0) + (p.losses || 0)}`))),
+    h('div', { class: 'menu-btns' },
+      h('button', { class: 'btn primary', onClick: quickPlay }, '🎮 Быстрая игра'),
+      h('button', { class: 'btn blue', onClick: () => openCreate(false) }, '➕ Создать комнату'),
+      h('button', { class: 'btn', onClick: () => openJoin('') }, '🚪 Войти в комнату'),
+      h('button', { class: 'btn green', onClick: openTraining }, '🤖 Тренировка с ботами'),
+      h('button', { class: 'btn', onClick: () => go('stats') }, '🏆 Статистика'),
+      h('button', { class: 'btn', onClick: () => go('settings') }, '⚙️ Настройки')));
+}
+async function quickPlay() { Snd.play('click'); await act('quick_play'); }
+
+/* ----- создание комнаты ----- */
+function openCreate(quick) {
+  const f = { name: '', max_players: 4, public: true, password: '', allow_bots: true, target_score: 200, stacking: false, turn_time: 45 };
+  const pw = h('div', { class: 'field', hidden: true }, h('label', null, 'Пароль (необязательно)'), h('input', { type: 'password', maxlength: '16', autocomplete: 'off', placeholder: 'Оставьте пустым — вход по коду', onInput: e => { f.password = e.target.value; } }));
+  const body = [
+    h('div', { class: 'field' }, h('label', null, 'Название комнаты'), h('input', { type: 'text', maxlength: '24', placeholder: 'Например, «Вечерний UNO»', onInput: e => { f.name = e.target.value; } })),
+    h('div', { class: 'field' }, h('label', null, 'Количество игроков'), seg([[2, '2'], [3, '3'], [4, '4']], 4, v => { f.max_players = v; })),
+    h('div', { class: 'field' }, h('label', null, 'Доступ'), seg([[true, '🌐 Публичная'], [false, '🔒 Приватная']], true, v => { f.public = v; pw.hidden = v; })),
+    pw,
+    h('div', { class: 'field' }, h('label', null, 'Очков для победы в матче'), seg([[100, '100'], [200, '200'], [300, '300'], [500, '500']], 200, v => { f.target_score = v; })),
+    h('div', { class: 'field' }, h('label', null, 'Время на ход, сек'), seg([[20, '20'], [30, '30'], [45, '45'], [60, '60']], 45, v => { f.turn_time = v; })),
+    toggle('Разрешить ботов', 'Владелец сможет добавить ботов в лобби', true, v => { f.allow_bots = v; }),
+    toggle('Наложение штрафов', '«+2» на «+2» и «+4» на «+4» переводят штраф дальше', false, v => { f.stacking = v; }),
+    h('button', { class: 'btn primary', onClick: async () => { Snd.play('click'); const r = await act('create_room', f); if (r.ok) closeSheet(); } }, '✅ Создать комнату'),
+  ];
+  openSheet('Новая комната', body);
+}
+function openTraining() {
+  const f = { training: true, bot_count: 2, difficulty: 'normal' };
+  openSheet('Тренировка', [
+    h('div', { class: 'muted' }, 'Игра против ботов. Статистика побед не засчитывается.'),
+    h('div', { class: 'field' }, h('label', null, 'Количество ботов'), seg([[1, '1'], [2, '2'], [3, '3']], 2, v => { f.bot_count = v; })),
+    h('div', { class: 'field' }, h('label', null, 'Сложность'), seg([['easy', 'Лёгкий'], ['normal', 'Средний'], ['hard', 'Сильный']], 'normal', v => { f.difficulty = v; })),
+    h('button', { class: 'btn primary', onClick: async () => { const r = await act('create_room', f); if (r.ok) closeSheet(); } }, '▶ Начать'),
+  ]);
+}
+
+/* ----- вход в комнату ----- */
+function openJoin(code) {
+  const codeIn = h('input', { type: 'text', maxlength: '8', autocapitalize: 'characters', autocomplete: 'off', placeholder: 'КОД', style: 'text-transform:uppercase;letter-spacing:.2em;font-weight:800;text-align:center', value: code || '' });
+  const pwIn = h('input', { type: 'password', maxlength: '16', autocomplete: 'off', placeholder: 'Пароль, если комната закрыта' });
+  const join = async (c) => { const v = (c || codeIn.value).trim().toUpperCase(); if (!v) return toast('Введите код комнаты', 'err'); const r = await act('join_room', { code: v, password: pwIn.value }); if (r.ok) closeSheet(); };
+  codeIn.addEventListener('keydown', e => { if (e.key === 'Enter') join(); });
+  pwIn.addEventListener('keydown', e => { if (e.key === 'Enter') join(); });
+  window.__joinFromList = (r) => { codeIn.value = r.code; if (r.has_password) { pwIn.focus(); toast('Эта комната защищена паролем'); } else if (r.status === 'lobby') join(r.code); };
+  openSheet('Вход в комнату', [
+    h('div', { class: 'field' }, h('label', null, 'Код комнаты'), codeIn),
+    h('div', { class: 'field' }, h('label', null, 'Пароль'), pwIn),
+    h('button', { class: 'btn primary', onClick: () => join() }, '🚪 Войти'),
+    h('div', { class: 'row' }, h('h3', { class: 'grow', style: 'margin:0' }, 'Публичные комнаты'), h('button', { class: 'icon-btn', onClick: () => Net.sendRaw({ type: 'get_rooms' }), 'aria-label': 'Обновить' }, '🔄')),
+    h('div', { class: 'stack', id: 'rooms-list' }),
+  ]);
+  S.rooms = []; fillRooms();
+  Net.sendRaw({ type: 'get_rooms' });
+  ui.roomsTimer = setInterval(() => Net.sendRaw({ type: 'get_rooms' }), 4000);
+}
+function fillRooms() {
+  const box = $('#rooms-list'); if (!box) return;
+  if (!S.rooms.length) { box.replaceChildren(h('div', { class: 'muted', style: 'text-align:center;padding:10px' }, 'Публичных комнат пока нет')); return; }
+  box.replaceChildren(...S.rooms.map(r => h('button', { class: 'room-item', onClick: () => window.__joinFromList(r) },
+    h('div', { class: 'grow' }, h('div', { class: 'nm' }, (r.has_password ? '🔒 ' : '') + r.name), h('div', { class: 'muted', style: 'font-size:12px' }, `Код ${r.code} · хозяин ${r.owner_name || '—'} · до ${r.target_score} очков`)),
+    h('div', { style: 'text-align:right' }, h('div', { style: 'font-weight:800' }, `${r.players}/${r.max_players}`), h('span', { class: 'badge' + (r.status === 'lobby' ? '' : ' busy') }, r.status === 'lobby' ? 'Ожидание' : 'Идёт игра')))));
+}
+
+/* ----- статистика ----- */
+function statsView() {
+  const p = S.profile || {}, u = S.user || { name: '' }, lb = (S.stats && S.stats.leaderboard) || [];
+  const st = (v, l) => h('div', { class: 'stat' }, h('b', null, v), h('span', null, l));
+  return h('div', { class: 'screen' },
+    h('div', { class: 'row', style: 'margin-bottom:12px' }, h('button', { class: 'icon-btn', onClick: () => go('menu') }, '←'), h('div', { class: 'title grow' }, '🏆 Статистика')),
+    h('div', { class: 'scroll stack' },
+      h('div', { class: 'card-panel profile', style: 'margin:0' }, avatar(u, 56), h('div', { class: 'grow' }, h('div', { class: 'nm' }, u.name))),
+      h('div', { class: 'stat-grid' }, st(p.wins || 0, 'Побед'), st(p.losses || 0, 'Поражений'), st((p.win_rate || 0) + '%', 'Процент побед'), st(p.rounds || 0, 'Раундов сыграно'),
+        st(p.streak || 0, 'Серия побед'), st(p.best_streak || 0, 'Лучшая серия'), st(p.best_score || 0, 'Лучший результат'), st(p.points || 0, 'Всего очков')),
+      h('h3', null, 'Таблица лидеров'),
+      lb.length ? lb.map(r => h('div', { class: 'lb-row' + (r.you ? ' you' : '') }, h('div', { class: 'rk' }, r.rank), avatar({ id: r.name + r.rank, name: r.name, photo: r.photo }, 34),
+        h('div', { class: 'grow', style: 'font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap' }, r.name), h('div', { style: 'text-align:right;font-size:13px' }, h('b', null, r.wins + ' поб.'), h('div', { class: 'muted', style: 'font-size:11px' }, r.points + ' очк.'))))
+        : h('div', { class: 'muted', style: 'text-align:center;padding:16px' }, 'Пока никто не сыграл матч')));
+}
+
+/* ----- настройки ----- */
+function settingsView() {
+  return h('div', { class: 'screen' },
+    h('div', { class: 'row', style: 'margin-bottom:12px' }, h('button', { class: 'icon-btn', onClick: () => go('menu') }, '←'), h('div', { class: 'title grow' }, '⚙️ Настройки')),
+    h('div', { class: 'card-panel stack' },
+      toggle('🔊 Звук', 'Эффекты ходов и уведомлений', Settings.sound, v => { Settings.sound = v; Settings.save(); Snd.play('click'); }),
+      toggle('✨ Облегчённые анимации', 'Меньше движения — для слабых устройств', Settings.lite, v => { Settings.lite = v; Settings.save(); }),
+      toggle('📳 Вибрация', 'Отклик на ходы и ошибки', Settings.vibrate, v => { Settings.vibrate = v; Settings.save(); vib('light'); })),
+    h('div', { class: 'muted', style: 'font-size:12px;margin-top:14px;text-align:center;line-height:1.5' }, 'Настройки хранятся только на этом устройстве.', h('br'), 'Сервер: ' + (CONFIG.SERVER_URL || location.host)));
+}
+
+/* ----- лобби ----- */
+function copyText(t) {
+  const ok = () => toast('Скопировано', 'ok');
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(ok, () => legacyCopy(t, ok));
+  else legacyCopy(t, ok);
+}
+function legacyCopy(t, ok) {
+  const ta = h('textarea', { style: 'position:fixed;opacity:0' }); ta.value = t; document.body.append(ta); ta.select();
+  try { document.execCommand('copy'); ok(); } catch (e) { toast('Не удалось скопировать', 'err'); } ta.remove();
+}
+function invite(R) {
+  const link = CONFIG.BOT_LINK.replace(/\/+$/, '') + '?startapp=' + R.code;
+  const text = `Играем в UNO! Код комнаты: ${R.code}` + (R.has_password ? ' (нужен пароль)' : '');
+  const url = 'https://t.me/share/url?url=' + encodeURIComponent(link) + '&text=' + encodeURIComponent(text);
+  if (tg && tg.openTelegramLink) tg.openTelegramLink(url);
+  else if (navigator.share) navigator.share({ text: text + '\n' + link }).catch(() => {});
+  else copyText(text + '\n' + link);
+}
+function lobbyView() {
+  const R = S.room, me = R.you, isOwner = R.owner === me;
+  const rows = R.players.map(p => h('div', { class: 'prow' + (p.connected ? '' : ' off') }, avatar(p, 44),
+    h('div', { class: 'grow' }, h('div', { class: 'nm' }, (p.owner ? '👑 ' : '') + p.name + (p.id === me ? ' (вы)' : '')), h('div', { class: 'sub' }, p.bot ? '🤖 Бот · ' + DIFF_NAMES[p.difficulty] : (p.connected ? 'В комнате' : 'Нет связи…'))),
+    isOwner && p.id !== me ? [
+      p.bot ? null : h('button', { class: 'icon-btn', title: 'Передать управление', onClick: () => confirmDialog(`Передать управление комнатой игроку ${p.name}?`, 'Передать', () => act('transfer_owner', { target: p.id })) }, '👑'),
+      h('button', { class: 'icon-btn', title: 'Исключить', onClick: () => act('kick', { target: p.id }) }, '✖')] : null));
+  for (let i = R.players.length; i < R.max_players; i++) rows.push(h('div', { class: 'prow empty' }, 'Ожидание игрока…'));
+  const free = R.players.length < R.max_players;
+  return h('div', { class: 'screen' },
+    h('div', { class: 'lobby-head' }, h('button', { class: 'icon-btn', onClick: leaveRoom, 'aria-label': 'Выйти' }, '←'), h('div', { class: 't grow' }, R.name)),
+    h('div', { class: 'chips' }, h('span', { class: 'chip' }, R.public ? '🌐 Публичная' : '🔒 Приватная'), R.has_password ? h('span', { class: 'chip' }, '🔑 Пароль') : null,
+      h('span', { class: 'chip' }, '🎯 ' + R.target_score + ' очков'), h('span', { class: 'chip' }, '⏱ ' + R.turn_time + ' с'),
+      R.allow_bots ? h('span', { class: 'chip' }, '🤖 Боты') : null, R.stacking ? h('span', { class: 'chip' }, '➕ Наложение') : null),
+    h('div', { class: 'card-panel stack', style: 'gap:10px' },
+      h('div', { class: 'codebox' }, h('div', null, h('div', { class: 'muted', style: 'font-size:12px' }, 'Код комнаты'), h('div', { class: 'code' }, R.code)),
+        h('button', { class: 'btn small', onClick: () => copyText(R.code) }, '📋 Скопировать код')),
+      h('button', { class: 'btn blue', onClick: () => invite(R) }, '✈️ Пригласить друзей')),
+    h('div', { class: 'plist' }, rows),
+    isOwner && R.allow_bots && free ? h('div', { class: 'row', style: 'margin-bottom:10px' }, ['easy', 'normal', 'hard'].map(d => h('button', { class: 'btn small grow', onClick: () => act('add_bot', { difficulty: d }) }, '🤖+ ' + DIFF_NAMES[d]))) : null,
+    isOwner ? h('button', { class: 'btn green', disabled: R.players.length < 2, onClick: () => { Snd.play('click'); act('start_game'); } }, R.players.length < 2 ? 'Нужно минимум 2 участника' : '▶ Начать матч')
+      : h('div', { class: 'muted', style: 'text-align:center;padding:12px' }, '⏳ Ждём, пока владелец начнёт игру…'),
+    h('div', { class: 'row', style: 'margin-top:10px' }, h('button', { class: 'btn small grow', onClick: leaveRoom }, 'Выйти'),
+      isOwner ? h('button', { class: 'btn small red grow', onClick: () => confirmDialog('Закрыть комнату для всех игроков?', 'Закрыть', () => act('close_room'), true) }, 'Закрыть комнату') : null));
+}
+function leaveRoom() {
+  const R = S.room; if (!R) return;
+  const inMatch = R.status === 'playing' || R.status === 'round_over';
+  if (inMatch) confirmDialog('Выйти из матча?' + (R.ranked ? ' Это будет засчитано как поражение.' : ''), 'Выйти', () => act('leave_room'), true);
+  else act('leave_room');
+}
+
+/* ----- игровое поле ----- */
+function gameView() {
+  const R = S.room, G = R.game, me = R.you;
+  if (!G) return h('div', { class: 'center-col' }, h('div', { class: 'spinner' }));
+  const playing = R.status === 'playing', myTurn = playing && G.turn === me;
+  const idx = R.players.findIndex(p => p.id === me);
+  const opps = [...R.players.slice(idx + 1), ...R.players.slice(0, idx)];
+  const mePl = R.players[idx];
+  const turnPl = R.players.find(p => p.id === G.turn);
+
+  const oppEls = opps.map(p => h('div', { class: 'opp' + (G.turn === p.id ? ' turn' : '') + (p.connected || p.bot ? '' : ' gone') },
+    h('div', { class: 'ring', 'data-ring': p.id }, avatar(p, 46)),
+    h('div', { class: 'nm' }, p.name),
+    h('div', { class: 'meta' }, h('span', { class: 'cnt' }, '🂠 ' + p.cards), h('span', null, '🏆' + p.score)),
+    h('div', { class: 'minis' }, Array.from({ length: Math.min(p.cards, 7) }, () => h('div', { class: 'mini' }))),
+    !p.connected && !p.bot ? h('div', { class: 'tag' }, 'нет связи') : (p.auto ? h('div', { class: 'tag' }, 'авто') : (p.uno ? h('div', { class: 'tag uno' }, 'UNO') : null)),
+    G.uno && G.uno.pid === p.id ? h('button', { class: 'catch-btn', 'data-catch': p.id, onClick: () => act('catch_uno', { target: p.id }) }, 'ПОЙМАТЬ!') : null));
+
+  // верхняя карта (во время анимации показываем предыдущую)
+  const held = ui.pileHold > performance.now() && ui.pileTopPrev;
+  const topCard = held ? ui.pileTopPrev : G.top;
+  const colorHex = COLOR_HEX[G.color] || '#fff';
+
+  let status = '', statusCls = 'status';
+  if (!playing) status = '';
+  else if (myTurn && G.pending) { status = `Возьмите +${G.pending} или сыграйте «${G.pending_kind === 'draw2' ? '+2' : '+4'}»`; statusCls += ' mine'; }
+  else if (myTurn && G.can_pass) { status = 'Сыграйте взятую карту или пропустите ход'; statusCls += ' mine'; }
+  else if (myTurn) { status = 'Ваш ход'; statusCls += ' mine'; }
+  else if (turnPl) status = 'Ходит: ' + turnPl.name;
+
+  const myHand = G.hand;
+  const canUno = playing && (myHand.length === 1 || (myHand.length === 2 && myTurn));
+  const unoUrgent = G.uno && G.uno.pid === me;
+  const prevIds = ui.prevHand;
+  const handEls = myHand.map(c => {
+    const ok = myTurn && G.playable.includes(c.id);
+    const el = cardEl(c);
+    if (ok) el.classList.add('playable'); else if (myTurn) el.classList.add('dim');
+    if (ui.selected === c.id && ok) el.classList.add('selected');
+    if (ui.dealAnim && !Settings.lite) { el.classList.add('newcard'); el.style.animationDelay = (myHand.indexOf(c) * 70) + 'ms'; }
+    else if (prevIds && !prevIds.has(c.id) && !Settings.lite) el.classList.add('newcard');
+    el.addEventListener('click', () => onCardTap(c, el));
+    return el;
+  });
+  ui.prevHand = new Set(myHand.map(c => c.id));
+
+  const root = h('div', { class: 'game' },
+    h('div', { class: 'topbar' },
+      h('button', { class: 'icon-btn', onClick: openGameMenu, 'aria-label': 'Меню' }, '☰'),
+      h('div', { class: 'rc' }, h('div', { class: 'rn' }, R.name), h('div', { class: 'rcode' }, `КОД ${R.code} · РАУНД ${R.round_no}`)),
+      h('span', { class: 'chip' }, '🎯 ' + R.target_score)),
+    h('div', { class: 'opps' }, oppEls),
+    h('div', { class: 'table' },
+      h('div', { class: 'dir' + (G.direction < 0 ? ' ccw' : '') }, '↻'),
+      h('div', { class: 'deckwrap' },
+        h('div', { class: 'deck' + (G.can_draw ? ' can' : ''), onClick: drawCard }, h('div', { class: 'stackfx' }), cardEl(null, true), h('div', { class: 'n' }, G.deck + ' карт'))),
+      h('div', { class: 'pilewrap' },
+        h('div', { class: 'pile', style: `--cc:${colorHex}` }, h('div', { class: 'ringc' }), cardEl(topCard)),
+        h('div', { class: 'cname', style: `color:${colorHex}` }, COLOR_NAMES[G.color] || ''))),
+    h('div', { class: statusCls }, status),
+    h('div', { class: 'mebar' }, h('div', { class: 'ring', 'data-ring': me, style: 'padding:2px' }, avatar(mePl, 30)), h('div', { class: 'nm' }, mePl.name), h('span', { class: 'cnt' }, '🏆 ' + mePl.score),
+      h('div', { class: 'tbar', id: 'tbar' }, h('i')), h('span', { class: 'muted', id: 'tleft', style: 'font-size:12px;width:34px;text-align:right' })),
+    h('div', { class: 'actions' },
+      h('button', { class: 'btn', disabled: !G.can_draw, onClick: drawCard }, G.pending && myTurn ? `📥 Взять +${G.pending}` : '📥 Взять карту'),
+      G.can_pass ? h('button', { class: 'btn blue', onClick: () => act('pass_turn') }, '⏭ Пропустить') : null,
+      canUno ? h('button', { class: 'btn unobtn' + (unoUrgent || (myHand.length === 2 && myTurn) ? ' pulse' : ''), onClick: () => act('call_uno') }, 'UNO!') : null),
+    h('div', { class: 'hand-scroll' }, h('div', { class: 'hand' }, handEls)));
+
+  if (R.status !== 'playing') root.append(resultsView(R));
+  return root;
+}
+
+function layoutHand() {
+  const sc = $('.hand-scroll'); if (!sc) return;
+  const hand = $('.hand', sc), cards = [...hand.children]; if (!cards.length) return;
+  const n = cards.length, cw = cards[0].offsetWidth || 60, W = sc.clientWidth - 16;
+  let step = n > 1 ? Math.min(cw * 0.9, (W - cw) / (n - 1)) : 0, scrolls = false;
+  const MIN = Math.max(26, cw * 0.42);
+  if (n > 1 && step < MIN) { step = MIN; scrolls = true; }
+  ui.overlapping = n > 1 && step < cw * 0.7;
+  cards.forEach((c, i) => { c.style.marginLeft = i === 0 ? '0' : `${step - cw}px`; });
+  hand.style.width = (cw + step * (n - 1)) + 'px';
+  hand.style.margin = scrolls ? '0' : '0 auto';
+  sc.style.overflowX = scrolls ? 'auto' : 'hidden';
+}
+window.addEventListener('resize', () => { layoutHand(); });
+
+function onCardTap(c, el) {
+  const R = S.room; if (!R || R.status !== 'playing') return;
+  const G = R.game, myTurn = G.turn === R.you;
+  if (!myTurn) { toast('Сейчас не ваш ход'); return; }
+  if (!G.playable.includes(c.id)) {
+    el.classList.remove('shake'); void el.offsetWidth; el.classList.add('shake');
+    Snd.play('error'); vib('error');
+    if (G.pending) toast('Нужно ответить такой же картой «+» или взять штраф');
+    else if (c.value === 'wild4') toast('«+4» можно сыграть, только если нет карты текущего цвета');
+    else toast('Эту карту нельзя сыграть');
+    return;
+  }
+  if (ui.overlapping && ui.selected !== c.id) { ui.selected = c.id; Snd.play('click'); render(); return; }
+  ui.selected = null;
+  if (c.color === 'W') pickColor(col => playCard(c.id, col));
+  else playCard(c.id, null);
+}
+function playCard(id, color) { act('play_card', color ? { card_id: id, color } : { card_id: id }); }
+function drawCard() {
+  const R = S.room; if (!R || R.status !== 'playing') return;
+  if (!R.game.can_draw) { toast(R.game.turn === R.you ? 'Вы уже взяли карту' : 'Сейчас не ваш ход'); return; }
+  act('draw_card');
+}
+function pickColor(cb) {
+  openSheet('Выберите цвет', h('div', { style: 'display:grid;grid-template-columns:1fr 1fr;gap:12px' },
+    ['R', 'Y', 'G', 'B'].map(c => h('button', { class: 'btn', style: `height:84px;font-size:18px;background:${COLOR_HEX[c]};color:#10143a;border:3px solid #fff`, onClick: () => { closeSheet(); cb(c); } }, COLOR_NAMES[c]))));
+}
+function openGameMenu() {
+  const R = S.room, isOwner = R.owner === R.you;
+  openSheet('Меню', [
+    toggle('🔊 Звук', null, Settings.sound, v => { Settings.sound = v; Settings.save(); }),
+    toggle('✨ Облегчённые анимации', null, Settings.lite, v => { Settings.lite = v; Settings.save(); }),
+    h('div', { class: 'muted', style: 'font-size:13px' }, `Код комнаты: ${R.code} · ${R.stacking ? 'наложение штрафов включено' : 'штрафы не накладываются'}`),
+    h('button', { class: 'btn small', onClick: () => copyText(R.code) }, '📋 Скопировать код'),
+    h('button', { class: 'btn small', onClick: () => { closeSheet(); invite(R); } }, '✈️ Пригласить друзей'),
+    h('button', { class: 'btn red', onClick: () => { closeSheet(); leaveRoom(); } }, '🚪 Выйти из матча'),
+    isOwner ? h('button', { class: 'btn small red', onClick: () => { closeSheet(); confirmDialog('Закрыть комнату для всех игроков?', 'Закрыть', () => act('close_room'), true); } }, 'Закрыть комнату') : null,
+  ]);
+}
+
+/* ----- итоги раунда ----- */
+function resultsView(R) {
+  const res = R.game.result, me = R.you; if (!res) return h('div');
+  const isOwner = R.owner === me, over = res.match_over, won = res.winner === me;
+  const rows = [...res.players].sort((a, b) => (b.id === res.winner) - (a.id === res.winner) || b.score - a.score).map(p => h('div', { class: 'res-row' + (p.id === res.winner ? ' win' : '') },
+    avatar(p, 38),
+    h('div', { class: 'grow' }, h('div', { style: 'font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap' }, (p.id === res.winner ? '👑 ' : '') + p.name + (p.id === me ? ' (вы)' : '')),
+      h('div', { class: 'muted', style: 'font-size:12px' }, p.id === res.winner ? 'Карт не осталось' : `Осталось карт: ${p.cards} (${p.hand_points} очк.)`),
+      h('div', { class: 'prog' }, h('i', { style: `width:${Math.min(100, p.score / res.target * 100)}%` }))),
+    h('div', { style: 'text-align:right' }, p.id === res.winner ? h('div', { class: 'pts' }, '+' + res.points) : null, h('div', { style: 'font-weight:800' }, p.score))));
+  return h('div', { class: 'results' }, h('div', { class: 'res-card' },
+    h('div', { class: 'crown' }, over ? '🏆' : (won ? '🎉' : '🃏')),
+    h('div', { class: 'res-title' }, over ? `Матч выиграл ${res.winner_name}!` : (won ? 'Вы выиграли раунд!' : `Раунд выиграл ${res.winner_name}`)),
+    h('div', { class: 'muted', style: 'text-align:center;font-size:13px' }, over ? `Достигнуто ${res.target} очков` : `До победы в матче: ${res.target} очков`),
+    rows,
+    isOwner ? h('button', { class: 'btn primary', onClick: () => act('next_round') }, over ? '🔁 Реванш' : '▶ Следующий раунд') : h('div', { class: 'muted', style: 'text-align:center;padding:6px' }, '⏳ Ждём решения владельца…'),
+    h('div', { class: 'row' },
+      isOwner ? h('button', { class: 'btn small grow', onClick: () => act('return_to_lobby') }, '↩ Вернуться в лобби') : null,
+      h('button', { class: 'btn small red grow', onClick: () => act('leave_room') }, 'Выйти'))));
+}
+
+/* ========================= таймеры ========================= */
+function updateTimers() {
+  const R = S.room, G = R && R.game, t = now();
+  const live = R && R.status === 'playing' && G;
+  document.querySelectorAll('[data-ring]').forEach(el => {
+    let p = 0, urgent = false;
+    if (live && G.turn_deadline && el.dataset.ring === G.turn) {
+      const rem = Math.max(0, G.turn_deadline - t); p = Math.min(100, rem / R.turn_time * 100); urgent = rem <= 8;
+    }
+    el.style.setProperty('--p', p.toFixed(1)); el.classList.toggle('urgent', urgent);
+  });
+  const tb = $('#tbar'), tl = $('#tleft');
+  if (tb && tl) {
+    if (live && G.turn === R.you && G.turn_deadline) {
+      const rem = Math.max(0, G.turn_deadline - t);
+      tb.style.setProperty('--p', Math.min(100, rem / R.turn_time * 100).toFixed(1)); tb.classList.toggle('urgent', rem <= 8); tl.textContent = Math.ceil(rem) + ' с';
+    } else { tb.style.setProperty('--p', 0); tl.textContent = ''; }
+  }
+  document.querySelectorAll('[data-catch]').forEach(el => { el.hidden = !(live && G.uno && t < G.uno.until && G.uno.pid === el.dataset.catch); });
+}
+setInterval(updateTimers, 250);
+
+/* ========================= запуск ========================= */
+async function checkServer() {
+  for (let i = 0; i < 10; i++) {
+    try {
+      const ctl = new AbortController(), tm = setTimeout(() => ctl.abort(), 5000);
+      await fetch(healthUrl(), { cache: 'no-store', mode: 'no-cors', signal: ctl.signal });
+      clearTimeout(tm); return true;
+    } catch (e) {}
+    S.loadingMsg = i < 1 ? 'Проверяем сервер…' : `Сервер просыпается… (${i + 1}/10)`; render();
+    await sleep(3000);
+  }
+  return false;
+}
+async function boot() {
+  S.screen = 'loading'; S.loadingMsg = 'Проверяем сервер…'; render();
+  if (!(tg && tg.initData) && !devUser()) {
+    S.screen = 'error'; S.errorEmoji = '✈️'; S.errorMsg = 'Откройте игру через Telegram: найдите бота и нажмите кнопку запуска приложения.'; S.retry = null; return render();
+  }
+  if (!(await checkServer())) {
+    S.screen = 'error'; S.errorEmoji = '📡'; S.errorMsg = 'Сервер недоступен. Возможно, он ещё запускается — попробуйте через минуту.'; S.retry = boot; return render();
+  }
+  S.loadingMsg = 'Подключаемся…'; render();
+  Net.stopped = false; Net.attempt = 0; Net.connect();
+}
+
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden || Net.stopped || !S.user) return;
+  if (!Net.ws) { Net.attempt = 0; clearTimeout(Net.retryTimer); Net.connect(); }
+  else if (S.authed) Net.sendRaw({ type: 'request_state' });
+});
+window.addEventListener('online', () => { if (!Net.stopped && S.user && !Net.ws) { Net.attempt = 0; clearTimeout(Net.retryTimer); Net.connect(); } });
+document.addEventListener('pointerdown', () => Snd.ensure(), { once: true });
+document.addEventListener('keydown', e => {
+  if (e.target && e.target.tagName === 'INPUT') return;
+  if (e.key === 'Escape') closeSheet();
+  if (!S.room || S.room.status !== 'playing' || $('#sheet').firstChild) return;
+  if (e.key === 'd' || e.key === 'D' || e.key === ' ') { e.preventDefault(); drawCard(); }
+  if (e.key === 'u' || e.key === 'U') act('call_uno', {}, true);
+});
+
+if (tg) {
+  try {
+    tg.ready(); tg.expand();
+    tg.setHeaderColor && tg.setHeaderColor('#0b1026'); tg.setBackgroundColor && tg.setBackgroundColor('#0b1026');
+    tg.disableVerticalSwipes && tg.disableVerticalSwipes();
+    if (tg.BackButton) tg.BackButton.onClick(() => { if ($('#sheet').firstChild) closeSheet(); else go('menu'); });
+    const sp = tg.initDataUnsafe && tg.initDataUnsafe.start_param;
+    if (sp && /^[A-Za-z0-9]{4,8}$/.test(sp)) S.startParam = sp.toUpperCase();
+  } catch (e) {}
+}
+{
+  const q = new URLSearchParams(location.search).get('join');
+  if (q && /^[A-Za-z0-9]{4,8}$/.test(q)) S.startParam = q.toUpperCase();
+}
+Settings.load();
+boot();
+})();
+</script>
+</body>
+</html>
