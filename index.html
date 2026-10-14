@@ -752,8 +752,8 @@ frame();
 
 // ---------- разметка ----------
 $("sats").innerHTML = GENS.map((g,i)=>`<div class="sat" id="sat${i}" style="--c:${g[3]};--r:${86+i*8}px;--d:${5+i*2.2}s;--a:${i*60}deg"></div>`).join("");
-$("gens").innerHTML = GENS.map((g,i)=>`<div class="row" id="r${i}"><div class="ic" style="--c:${g[3]}">${GI[i]}</div><div class="info"><b>${g[0]} <span class="cnt" id="c${i}"></span></b><small>+${fmt(g[2])}/сек каждый</small></div><button class="buy" data-g="${i}" id="b${i}"></button></div>`).join("");
-$("ups").innerHTML = UP.map(u=>`<div class="row"><div class="ic" style="--c:#ffc93c">${UI_IC[u.k]}</div><div class="info"><b>${u.n} <span class="cnt" id="ul_${u.k}"></span></b><small id="ud_${u.k}"></small></div><button class="buy" data-u="${u.k}" id="ub_${u.k}"></button></div>`).join("");
+$("gens").innerHTML = GENS.map((g,i)=>`<div class="row" id="r${i}"><div class="ic" style="--c:${g[3]}">${GI[i]}</div><div class="info"><b>${g[0]} <span class="cnt" id="c${i}"></span></b><small>+${fmt(g[2])}/сек каждый</small></div><button class="buy" data-g="${i}" id="b${i}"></button><button class="buy alt" data-gm="${i}" id="gm${i}" style="min-width:64px"></button></div>`).join("");
+$("ups").innerHTML = UP.map(u=>`<div class="row"><div class="ic" style="--c:#ffc93c">${UI_IC[u.k]}</div><div class="info"><b>${u.n} <span class="cnt" id="ul_${u.k}"></span></b><small id="ud_${u.k}"></small></div><button class="buy" data-u="${u.k}" id="ub_${u.k}"></button><button class="buy alt" data-um="${u.k}" id="um_${u.k}" style="min-width:64px"></button></div>`).join("");
 $("items").innerHTML = Object.entries(ITEMS).map(([k,v])=>`<div class="row"><div class="info"><b>${v.n}</b><small>${v.d}</small></div><button class="buy star" data-i="${k}" id="s_${k}">${v.p} ⭐</button></div>`).join("");
 
 function bind(sel, ids, cb){$(sel).addEventListener("click", e => {const btn = e.target.closest("button[data-t]"); if(!btn) return; const t = btn.dataset.t; [...e.currentTarget.children].forEach(b => b.classList.toggle("on", b === btn)); ids.forEach(i => $(i).hidden = i !== t); cb && cb(t)})}
@@ -914,8 +914,8 @@ function ui(){
   if(s.vip) parts.push("👑 VIP");
   $("boost").innerHTML = parts.map(p => `<span class="boost">${p}</span>`).join("");
 
-  GENS.forEach((g,i)=>{$("c"+i).textContent = "×"+s.g[i]; const c = gCost(i), e = $("b"+i); e.textContent = fmt(c); e.disabled = s.t < c; $("sat"+i).classList.toggle("on", s.g[i] > 0)});
-  UP.forEach(u=>{const l = s[u.k], mx = l >= u.m, c = uCost(u), b = $("ub_"+u.k); $("ul_"+u.k).textContent = "ур. "+l; $("ud_"+u.k).textContent = u.d(l); b.textContent = mx ? "Макс" : fmt(c); b.disabled = mx || s.t < c});
+  GENS.forEach((g,i)=>{$("c"+i).textContent = "×"+s.g[i]; const c = gCost(i), e = $("b"+i); e.textContent = fmt(c); e.disabled = s.t < c; const gn = gMax(i).n, gm = $("gm"+i); gm.textContent = gn > 0 ? "MAX ×"+gn : "MAX"; gm.disabled = gn < 1; $("sat"+i).classList.toggle("on", s.g[i] > 0)});
+  UP.forEach(u=>{const l = s[u.k], mx = l >= u.m, c = uCost(u), b = $("ub_"+u.k); $("ul_"+u.k).textContent = "ур. "+l; $("ud_"+u.k).textContent = u.d(l); b.textContent = mx ? "Макс" : fmt(c); b.disabled = mx || s.t < c; const n = mx ? 0 : upMax(u).n, m = $("um_"+u.k); m.textContent = n > 0 ? "MAX ×"+n : "MAX"; m.disabled = n < 1});
 
   const pg = prestigeGain();
   $("prestige").disabled = pg < 1;
@@ -985,10 +985,15 @@ function spawnGold(){
 setTimeout(spawnGold, 10000);
 
 // ---------- покупки ----------
+function gMax(i){let t = s.t, l = s.g[i], n = 0, sum = 0; while(n < 100000){const c = Math.ceil(GENS[i][1] * Math.pow(1.15, l)); if(t < c) break; t -= c; sum += c; l++; n++} return {n, sum}}
+$("gens").addEventListener("click", e => {const bm = e.target.closest("button[data-gm]"); if(!bm) return; const i = +bm.dataset.gm; const r = gMax(i); if(r.n < 1) return; s.t -= r.sum; s.g[i] += r.n; s.xp += 3 * r.n; hap("selection","selectionChanged"); toast(`${GI[i]} ${GENS[i][0]}: +${r.n}`);
+  const row = $("r"+i); row.classList.remove("pop"); void row.offsetWidth; row.classList.add("pop"); const [x,y] = coreXY(); burst(x, y, 24, GENS[i][3], 6)});
 $("gens").addEventListener("click", e => {const b = e.target.closest("button[data-g]"); if(!b) return; const i = b.dataset.g; const c = gCost(+i);
   if(s.t >= c){s.t -= c; s.g[i]++; s.xp += 3; hap("selection","selectionChanged");
     const row = $("r"+i); row.classList.remove("pop"); void row.offsetWidth; row.classList.add("pop");
     const [x,y] = coreXY(); burst(x, y, 18, GENS[i][3], 6)}});
+function upMax(u){let t = s.t, l = s[u.k], n = 0, sum = 0; while(l < u.m){const c = Math.ceil(u.b * Math.pow(u.g, l)); if(t < c) break; t -= c; sum += c; l++; n++} return {n, sum}}
+$("ups").addEventListener("click", e => {const bm = e.target.closest("button[data-um]"); if(!bm) return; const u = UP.find(x => x.k === bm.dataset.um); if(!u) return; const r = upMax(u); if(r.n < 1) return; s.t -= r.sum; s[u.k] += r.n; s.xp += 8 * r.n; hap("light"); toast(`🛠 ${u.n}: +${r.n} ур.`); const [x,y] = coreXY(); burst(x, y, 24, "#5df2c4", 6)});
 $("ups").addEventListener("click", e => {const b = e.target.closest("button[data-u]"); if(!b) return; const u = UP.find(x => x.k === b.dataset.u); if(!u) return; const c = uCost(u); if(s[u.k] < u.m && s.t >= c){s.t -= c; s[u.k]++; s.xp += 8; hap("light"); const [x,y] = coreXY(); burst(x, y, 14, "#5df2c4", 5)}});
 
 // ---------- престиж ----------
