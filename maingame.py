@@ -18,13 +18,21 @@ except ImportError:
     asyncpg = None
 
 # =========================
-# НАСТРОЙКИ (секреты — через переменные окружения Render)
+# НАСТРОЙКИ (все секреты — ТОЛЬКО через переменные окружения Render)
 # =========================
-TOKEN = os.environ.get("BOT_TOKEN", "8307112310:AAHr3QCU5P39DCQla4sIppTKB4a1J5XrGgg")  # ОБЯЗАТЕЛЬНО через переменную окружения
+TOKEN = os.environ.get("BOT_TOKEN", "").strip()
 PROMO_URL = os.environ.get("PROMO_URL", "https://raw.githubusercontent.com/proman890k-wq/Kojsanislux/refs/heads/main/promo.txt")
-WEBAPP_URL = "https://proman890k-wq.github.io/Kojsanislux/"
-RENDER_URL = os.environ.get("RENDER_EXTERNAL_URL", "https://game-2gla.onrender.com")
-DATABASE_URL = "postgresql://postgres.lamguerjqzpckajjpvnv:ProManjjkl.123@aws-0-ap-northeast-1.pooler.supabase.com:5432/postgres"  # только из кода, переменная окружения игнорируется  # Postgres: Neon / Supabase / Render
+WEBAPP_URL = os.environ.get("WEBAPP_URL", "https://proman890k-wq.github.io/Kojsanislux/")
+RENDER_URL = os.environ.get("RENDER_EXTERNAL_URL", "")
+
+# База данных теперь берется исключительно из переменных окружения
+DATABASE_URL = os.environ.get("DATABASE_URL", "").strip()
+
+if not TOKEN:
+    print("CRITICAL ERROR: BOT_TOKEN не задан в переменных окружения!")
+if not DATABASE_URL:
+    print("CRITICAL ERROR: DATABASE_URL не задан в переменных окружения!")
+
 WEBHOOK_SECRET = hashlib.sha256(("wh:" + TOKEN).encode()).hexdigest()[:48] if TOKEN else ""
 ADMIN_IDS = {int(x) for x in re.findall(r"\d+", os.environ.get("ADMIN_IDS", ""))}  # Telegram ID админов (через запятую)
 ADMIN_KEY = os.environ.get("ADMIN_KEY", "")  # ключ для консольной команды и /admin/vip
@@ -170,7 +178,6 @@ ITEM_DATABASE = [
     {"id": "neural_matrix", "chance": 0.0001},
 ]
 
-# id: (название, описание, цена в звёздах)
 ITEMS = {
     "boost2": ("Разгон x2 на 1 час", "Весь доход x2. Время суммируется", 15),
     "boost5": ("Разгон x5 на 1 час", "Весь доход x5. Время суммируется", 50),
@@ -179,7 +186,6 @@ ITEMS = {
     "offline24": ("Работа во сне 24 ч", "Офлайн-доход копится до 24 часов", 500),
     "vip": ("VIP-статус", "Доход x1.5, ящики вдвое чаще, больше золотых звёзд, бейдж", 1000),
 }
-
 ITEMS["company_license"] = ("Лицензия на компанию", "Открыть свою компанию без $1 000 000", 250)
 
 # =========================
@@ -199,7 +205,7 @@ async def cors(request, handler):
     else:
         try:
             response = await handler(request)
-        except web.HTTPException as e:  # 404/405 и т.п. — не ошибка сервера (сканеры, боты)
+        except web.HTTPException as e:
             response = web.json_response({"error": e.reason}, status=e.status)
         except Exception as e:
             print("SERVER ERROR:", repr(e))
@@ -217,7 +223,6 @@ async def read_json(request):
         return {}
 
 def get_login(data):
-    """Логин = Telegram ID, проверенный по подписи initData."""
     uid = None
     name = None
     start = ""
@@ -257,7 +262,6 @@ def get_login(data):
     return login
 
 def promo_list(user):
-    """Все промокоды пользователя: код, время, награда (старые записи — только код)."""
     return [p if isinstance(p, dict) else {"code": p} for p in user["promos"]]
 
 def is_vip(user):
@@ -327,9 +331,7 @@ async def handle_use(request):
     return web.json_response({"state": state_of(user)})
 
 # =========================
-# ПРОМОКОДЫ (TXT на GitHub)
-# Формат строк:  КОД = 500 $      КОД = 5000000 токенов      # комментарий
-# Без единицы число считается токенами.
+# ПРОМОКОДЫ
 # =========================
 _promo_cache = {"t": 0.0, "data": {}}
 _attempts = {}
@@ -394,7 +396,7 @@ async def handle_promo(request):
     reward = promos.get(code)
     if not code or not reward:
         return web.json_response({"error": "Неверный промокод"}, status=400)
-    if any(p["code"] == code for p in promo_list(user)):  # проверка и отметка идут без await — двойное использование невозможно
+    if any(p["code"] == code for p in promo_list(user)):
         return web.json_response({"error": "Ты уже использовал этот промокод"}, status=400)
     user["promos"].append({"code": code, "ts": time.time(), **reward})
     touch(login)
@@ -402,10 +404,8 @@ async def handle_promo(request):
 
 # =========================
 # СТАТИСТИКА И ЛИДЕРБОРД
-# (прогресс хранится на устройстве, поэтому значения приходят от клиента)
 # =========================
 def store_game(login, g):
-    """Сохранить прогресс игрока. Возвращает "ok", "stale" или "Bad data"."""
     if not isinstance(g, dict) or len(json.dumps(g)) > 50_000:
         return "Bad data"
     try:
@@ -416,7 +416,7 @@ def store_game(login, g):
         return "Bad data"
     user = USERS[login]
     if last < float((user.get("game") or {}).get("last", 0)):
-        return "stale"  # более старая копия не затирает новую
+        return "stale"
     user["game"] = g
     user["stats"] = {"tot": max(user["stats"].get("tot", 0), tot), "usd": round(usd, 2),
                      "xp": max(user["stats"].get("xp", 0), xp)}
@@ -424,7 +424,6 @@ def store_game(login, g):
     return "ok"
 
 async def handle_save(request):
-    """Облачное сохранение: весь прогресс игрока лежит на сервере."""
     data = await read_json(request)
     login = get_login(data)
     if not login:
@@ -481,7 +480,7 @@ def apply_perk(perks, item):
         perks["auto_until"] = max(perks.get("auto_until", 0), now) + 2 * HOUR_MS
     elif item == "company_license":
         perks["company_license"] = perks.get("company_license", 0) + 1
-    else:  # perm2, offline24, vip
+    else:
         perks[item] = 1
 
 async def grant_purchase(session, message):
@@ -498,14 +497,14 @@ async def grant_purchase(session, message):
     user["purchases"].append({"item": item, "charge": charge, "ts": time.time()})
     apply_perk(user["perks"], item)
     touch(login)
-    await flush()  # платёж фиксируем в БД сразу
+    await flush()
     await call(session, "sendMessage", chat_id=message["chat"]["id"],
                text=f"🎁 Покупка получена: {ITEMS[item][0]}. Спасибо!")
 
 async def handle_webhook(request):
     if WEBHOOK_SECRET and not hmac.compare_digest(
             request.headers.get("X-Telegram-Bot-Api-Secret-Token", "").encode(), WEBHOOK_SECRET.encode()):
-        return web.Response(status=403, text="forbidden")  # иначе кто угодно мог бы подделать оплату
+        return web.Response(status=403, text="forbidden")
     try:
         data = await request.json()
         session = request.app["s"]
@@ -546,23 +545,20 @@ async def handle_webhook(request):
 
 # =========================
 # КОМПАНИИ, СЕРВЕРЫ, УЛУЧШЕНИЯ, БАНК, ЕЖЕДНЕВКА
-# Компания лежит в той же таблице, что и игроки (ключ "co_<id>").
-# Цена монеты — показатель компании (не торгуется): чем она выше, тем сильнее аппетит сервера. Всё покупается за доллары.
 # =========================
 ICONS = ["🏢", "🚀", "🧠", "🐉", "🦄", "🔥", "🌐", "⚡", "🛰️", "🐸", "💎", "🧬"]
-CREATE_USD = 1_000_000      # цена открытия компании
-CORE_SLOTS = 3              # максимум ядер на сервере
-TICK_SEC = 10               # шаг случайных событий
+CREATE_USD = 1_000_000
+CORE_SLOTS = 3
+TICK_SEC = 10
 NO_SAVE = "Нет сохранения — подожди пару секунд и повтори"
 
-# ключ: (название, описание, базовая цена $, максимум уровней). Покупает владелец из казны.
 UPGRADES = {
     "eff": ("Охлаждение", "−8% аппетита сервера за уровень", 2000, 5),
     "boost": ("Оверклок", "+5% к баффу дохода за уровень", 5000, 10),
     "slots": ("Офис", "+3 места в компании за уровень", 3000, 8),
 }
 
-EVENTS = [  # (вид, текст)
+EVENTS = [
     ("heat", "🔥 Сервер «{n}» перегрелся — аппетит ×1.8 на 5 минут"),
     ("grant", "🏛 Грант для «{n}»: +${v} в казну"),
     ("surge", "🚀 Инвесторы заметили «{n}» — бафф дохода +20% на 5 минут"),
@@ -576,7 +572,6 @@ def clean(text, n):
     return re.sub(r"\s+", " ", text).strip()[:n]
 
 def valid_emoji(s):
-    """Любой эмодзи (в т.ч. составные: флаги, семьи, с оттенками кожи). Буквы/цифры/теги запрещены."""
     s = str(s or "").strip()
     if not s or len(s) > 16:
         return False
@@ -607,11 +602,10 @@ def usd_of(user):
     return float(user["game"].get("usd", 0))
 
 def add_usd(user, d, dxp=0.0):
-    """Изменить доллары/опыт в серверной копии сохранения (клиент применяет ту же дельту)."""
     g = user["game"]
     g["usd"] = round(max(0.0, float(g.get("usd", 0)) + d), 2)
     g["xp"] = float(g.get("xp", 0)) + dxp
-    g["last"] = float(g.get("last", 0)) + 1  # чтобы старая копия клиента не затёрла изменение
+    g["last"] = float(g.get("last", 0)) + 1
     st = user.setdefault("stats", {})
     st["usd"] = g["usd"]
     st["xp"] = max(st.get("xp", 0), g["xp"])
@@ -655,10 +649,8 @@ def co_log(c, text):
     del c["feed"][30:]
 
 def appetite(c, now=None):
-    """Доля токенов игрока, которую сервер съедает за минуту."""
     now = now or time.time()
     n = len(c["members"])
-    # чем дороже монета компании, тем больше токенов ест сервер (но не наоборот)
     price = float(c["px"]["price"])
     r = 0.002 * (1 + 0.12 * (n - 1)) * min(4.0, max(0.7, price ** 0.3))
     if c.get("heat_until", 0) > now:
@@ -668,7 +660,6 @@ def appetite(c, now=None):
     return min(r, 0.05)
 
 def fair_price(c, now):
-    """«Справедливая» цена: растёт с участниками, скормленными токенами, ядрами, уровнем и улучшениями."""
     n = len(c["members"])
     f = (1 + 0.2 * (n - 1)) * (1 + 0.8 * math.log10(1 + c.get("fed", 0) / 2e5)) \
         * (1 + 0.22 * core_n(c)) * (1 + 0.01 * co_level(c)) * (1 + 0.04 * upg(c, "boost"))
@@ -679,7 +670,6 @@ def fair_price(c, now):
     return f
 
 def tick_price(c, now):
-    """Как на реальном рынке: случайное блуждание + импульс + медленный возврат к справедливой цене."""
     px = c["px"]
     p = px["price"]
     mom = px.get("mom", 0.0) * 0.9 + random.gauss(0, 0.0035)
@@ -694,7 +684,6 @@ def tick_price(c, now):
         del px["d"][:-288]
 
 async def market_loop():
-    """Цена монет и случайные события компаний (перегрев, гранты, всплески)."""
     while True:
         await asyncio.sleep(TICK_SEC)
         try:
@@ -723,7 +712,6 @@ async def market_loop():
             print("MARKET ERROR:", repr(e))
 
 def migrate_coins():
-    """Разовый перенос: монеты на руках превращаются в доллары (к выплате); у компаний цена хранится в c["px"]."""
     prices = {cid: float((c.get("coin") or c.get("px") or {}).get("price", 1.0)) for cid, c in COMPANIES.items()}
     for l, u in USERS.items():
         if l.startswith("co_") or not isinstance(u.get("co"), dict):
@@ -780,7 +768,6 @@ def ok(user, login, d_usd=0.0, d_xp=0.0, **extra):
                               "inv": user["inv"], "co": co_view(c, login) if c else None, **extra})
 
 async def co_ctx(request):
-    """Читает запрос, при наличии state сохраняет прогресс (нужно для проверки баланса)."""
     data = await read_json(request)
     login = get_login(data)
     if not login:
@@ -819,7 +806,6 @@ def remove_member(c, login, text):
     touch("co_" + c["id"])
 
 def disband(c):
-    """Закрыть компанию: ядра возвращаются, 50% казны делится между участниками."""
     for x in c["cores"]:
         if x:
             give_core(x["owner"])
@@ -838,14 +824,13 @@ def disband(c):
     _dirty.discard(key)
     _deleted.add(key)
 
-# ---------- запросы ----------
 async def handle_co_sync(request):
     data, login, user = await co_ctx(request)
     if not login:
         return err("Unauthorized", 401)
     co, now = user["co"], time.time()
     c = co_of_user(user)
-    if c and login not in c["members"]:  # рассинхрон — отвязываем игрока
+    if c and login not in c["members"]:
         co["id"] = None
         c = None
     drain = 0.0
@@ -918,7 +903,7 @@ async def handle_co_create(request):
         min_level = max(1, min(999, int(data.get("min_level", 1))))
     except (TypeError, ValueError):
         min_level = 1
-    if is_vip(user):  # VIP открывает компанию бесплатно
+    if is_vip(user):
         d_usd = 0.0
     elif data.get("pay") == "stars":
         if user["perks"].get("company_license", 0) < 1:
@@ -947,7 +932,7 @@ async def handle_co_create(request):
     co_log(c, f"🎉 Компания «{name}» ({ticker}) основана")
     touch(login)
     touch("co_" + cid)
-    await flush()  # новая компания и списание денег сразу в БД
+    await flush()
     return ok(user, login, d_usd=d_usd, d_xp=500 if d_usd else 300 if is_vip(user) else 200)
 
 async def handle_co_join(request):
@@ -1165,7 +1150,6 @@ async def handle_co_upgrade(request):
     touch("co_" + c["id"])
     return ok(user, login)
 
-# ---------- аватар (любой эмодзи) ----------
 async def handle_avatar(request):
     data = await read_json(request)
     login = get_login(data)
@@ -1178,7 +1162,6 @@ async def handle_avatar(request):
     touch(login)
     return web.json_response({"avatar": a})
 
-# ---------- ежедневная награда ----------
 def day_str(ts):
     return time.strftime("%Y-%m-%d", time.gmtime(ts))
 
@@ -1211,7 +1194,6 @@ async def handle_daily(request):
     touch(login)
     return web.json_response({"usd": usd, "streak": streak, "item": item, "state": state_of(user)})
 
-# ---------- банк: 1% в час, до 24 часов накопления ----------
 BANK_RATE = 0.01
 
 def bank_cap(user):
@@ -1226,10 +1208,9 @@ def bank_accrue(user):
     b["t"] = now
     return b
 
-# ---------- кредит: берёшь в долг, растут проценты, бот напоминает ----------
-LOAN_RATE = 0.015           # 1.5% в час
-LOAN_GRACE = 24 * 3600      # через сутки долг считается просроченным, бот начинает напоминать
-REMIND_EVERY = 12 * 3600    # напоминания не чаще раза в 12 часов
+LOAN_RATE = 0.015
+LOAN_GRACE = 24 * 3600
+REMIND_EVERY = 12 * 3600
 REMIND_MAX = 6
 
 def loan_cap(user):
@@ -1323,7 +1304,6 @@ async def handle_bank(request):
     return web.json_response({"ok": True, "d_usd": round(d_usd, 2), "d_xp": d_xp, "bank": bank_json(user)})
 
 async def debt_loop(app):
-    """Раз в 10 минут: если долг висит дольше суток — бот напоминает в личку (не чаще раза в 12 часов)."""
     while True:
         await asyncio.sleep(600)
         try:
@@ -1360,11 +1340,6 @@ CO_ROUTES = [("/api/co/sync", handle_co_sync), ("/api/co/list", handle_co_list),
              ("/api/co/upgrade", handle_co_upgrade), ("/api/avatar", handle_avatar),
              ("/api/daily", handle_daily), ("/api/bank", handle_bank)]
 
-# =========================
-# АДМИН: выдача и снятие VIP по Telegram ID
-# Бот:     /givevip <ID>   /revokevip <ID>   /vips        (только для ADMIN_IDS)
-# Консоль: python maingame.py vip <ID>   |   python maingame.py unvip <ID>   (нужен ADMIN_KEY)
-# =========================
 async def set_vip(session, uid, on=True):
     login = f"tg_{uid}"
     user = norm(USERS.setdefault(login, new_user()))
@@ -1374,7 +1349,7 @@ async def set_vip(session, uid, on=True):
     else:
         user["perks"].pop("vip", None)
     touch(login)
-    await flush()  # сразу пишем в БД — переживёт перезапуск
+    await flush()
     if session:
         await call(session, "sendMessage", chat_id=uid,
                    text="👑 Тебе выдан VIP-статус! Открой игру — всё уже активно." if on else "Твой VIP-статус снят.")
@@ -1393,13 +1368,12 @@ async def handle_admin_vip(request):
     return web.json_response({"ok": True, "id": uid, "vip": on})
 
 async def admin_command(session, message):
-    """Команды бота для админов. Возвращает True, если сообщение обработано."""
     text = message.get("text", "")
     if not text.startswith(("/givevip", "/revokevip", "/vips")):
         return False
     chat, me = message["chat"]["id"], message.get("from", {}).get("id")
     if me not in ADMIN_IDS:
-        return True  # молча игнорируем чужих
+        return True
     parts = text.split()
     cmd = parts[0].split("@")[0]
     if cmd == "/vips":
@@ -1415,32 +1389,6 @@ async def admin_command(session, message):
     await call(session, "sendMessage", chat_id=chat, text=f"{'👑 VIP выдан' if on else '✖ VIP снят'}: {uid}")
     return True
 
-def cli(argv):
-    """python maingame.py vip <ID> / unvip <ID> — шлёт команду в уже запущенный сервер."""
-    import urllib.request
-    if len(argv) < 3 or argv[1] not in ("vip", "unvip"):
-        print("Использование: python maingame.py vip <ID>  |  python maingame.py unvip <ID>")
-        return
-    if not ADMIN_KEY:
-        print("Задай переменную окружения ADMIN_KEY")
-        return
-    body = json.dumps({"id": argv[2], "action": "grant" if argv[1] == "vip" else "revoke"}).encode()
-    last = None
-    for base in (f"http://127.0.0.1:{PORT}", RENDER_URL):
-        try:
-            req = urllib.request.Request(base + "/admin/vip", body,
-                                         {"Content-Type": "application/json", "X-Admin-Key": ADMIN_KEY})
-            print(urllib.request.urlopen(req, timeout=20).read().decode())
-            return
-        except Exception as e:
-            last = e
-    print("Не удалось связаться с сервером:", last)
-
-# =========================
-# РЕФЕРАЛКА: $500 за каждого нового игрока по твоей ссылке
-# Ссылка: https://t.me/<бот>?start=ref_<твой Telegram ID>
-# Приглашённого определяет сервер (по /start или подписанному start_param), клиент ничего не подделает.
-# =========================
 REF_USD = 500
 
 def ref_login(param):
@@ -1448,7 +1396,6 @@ def ref_login(param):
     return f"tg_{m.group(1)}" if m else None
 
 def pay_referral(login):
-    """Игрок реально зашёл в игру — начисляем награду пригласившему (один раз)."""
     u = USERS[login]
     r = u["ref"]
     if not r.get("by") or r.get("paid"):
@@ -1476,27 +1423,19 @@ async def handle_ref(request):
 
 CO_ROUTES.append(("/api/ref", handle_ref))
 
-# =========================
-# СБОРКА (платы в каналах) И РЫНОК КОМПОНЕНТОВ
-# Платы дают постоянные бонусы. Покупаются на общем рынке: ассортимент и остатки у всех одни,
-# обновляется раз в 20–30 минут. Всё считает сервер — клиент только показывает.
-# =========================
 FX_KEYS = ("tap", "ps", "crit", "box", "cool", "star")
 FX_CAP = {"tap": 10.0, "ps": 10.0, "crit": 0.5, "box": 0.5, "cool": 0.6, "star": 0.5}
 SLOTS_START, SLOTS_MAX = 4, 8
-SLOT_COST = [25_000, 80_000, 200_000, 500_000]   # цена 5-го … 8-го канала
-SYNERGY_KINDS, SYNERGY_BONUS = 4, 0.10           # 4 разных типа эффекта в сборке — +10% ко всему
-SELL_RATE = 0.4                                  # продажа плат обратно — 40% базовой цены
-CRATE_COST = 180_000                             # «Тёмная партия»: случайная плата
+SLOT_COST = [25_000, 80_000, 200_000, 500_000]
+SYNERGY_KINDS, SYNERGY_BONUS = 4, 0.10
+SELL_RATE = 0.4
+CRATE_COST = 180_000
 CRATE_W = {"r": 52, "e": 32, "l": 13.5, "u": 2.5}
-LIST_W = {"r": 55, "e": 28, "l": 13, "u": 4}     # шансы редкости лота на рынке
+LIST_W = {"r": 55, "e": 28, "l": 13, "u": 4}
 STOCK = {"r": (3, 6), "e": (2, 4), "l": (1, 2), "u": (1, 1)}
 RARITY_XP = {"r": 20, "e": 80, "l": 250, "u": 1000}
 RARITY_NAME = {"r": "редкая", "e": "эпическая", "l": "легендарная", "u": "ультра-редкая"}
 
-# id: (название, эмодзи, редкость, {эффект: значение}, базовая цена $)
-# tap — сила тапа, ps — пассивный доход, crit — шанс крита, box — быстрее ящики,
-# cool — меньше аппетит сервера компании, star — чаще золотые звёзды
 PARTS = {
     "gt_lite": ("Видеоплата GT-Lite", "🎮", "r", {"tap": 0.06}, 6_000),
     "ram_x": ("Модуль RAM-X", "💾", "r", {"ps": 0.06}, 7_000),
@@ -1534,7 +1473,6 @@ def rig_of(user):
     return r
 
 def rig_fx(user):
-    """Суммарные бонусы сборки + флаг синергии."""
     fx, kinds = dict.fromkeys(FX_KEYS, 0.0), set()
     for pid in rig_of(user)["eq"]:
         part = PARTS.get(pid)
@@ -1560,7 +1498,6 @@ def rig_view(user):
             "fx": fx, "syn": syn, "slot_cost": nxt, "max": SLOTS_MAX, "syn_kinds": SYNERGY_KINDS,
             "syn_bonus": int(SYNERGY_BONUS * 100), "cat": {k: part_json(k) for k in PARTS}}
 
-# ---------- рынок ----------
 MARKET = {}
 
 def market_gen():
@@ -1579,7 +1516,7 @@ def market_gen():
         price = int(round(base * random.uniform(0.85, 1.3), -2 if base < 100_000 else -3))
         stock = random.randint(*STOCK[rar])
         items.append({"k": secrets.token_hex(3), "part": pid, "price": price, "stock": stock, "left": stock, "deal": False})
-    if items:  # одна случайная позиция — со скидкой 25%
+    if items:
         d = random.choice(items)
         d["deal"] = True
         d["price"] = int(d["price"] * 0.75)
@@ -1662,7 +1599,7 @@ async def handle_market(request):
         pid, rar = it["part"], PARTS[it["part"]][2]
         it["left"] -= 1
         if it["left"] > 0:
-            it["price"] = int(price * 1.08)  # спрос растёт — остаток дорожает
+            it["price"] = int(price * 1.08)
         d_xp = float(RARITY_XP[rar])
         add_usd(user, -price, d_xp)
         d_usd = -price
@@ -1695,7 +1632,7 @@ async def handle_market(request):
         return err("Неизвестное действие")
     touch(login)
     if act != "info":
-        await flush()  # покупки фиксируем в БД сразу
+        await flush()
     return rig_ok(user, d_usd, d_xp, **extra)
 
 async def handle_rig(request):
@@ -1752,16 +1689,10 @@ async def handle_rig(request):
 CO_ROUTES.append(("/api/rig", handle_rig))
 CO_ROUTES.append(("/api/market", handle_market))
 
-# =========================
-# ПЕРЕВОДЫ ДОЛЛАРОВ ПО ID
-# Игрок вводит Telegram ID получателя (виден в Меню → Моя статистика / в банке). Доллары списываются у
-# отправителя сразу, а получателю падают в co.pending — игра заберёт их при ближайшей синхронизации
-# (так же, как дивиденды и награды за друзей). Всё считает сервер.
-# =========================
-XFER_MIN = 1.0              # минимальный перевод, $
-XFER_KEEP = 20              # сколько последних переводов хранится в истории
-_xfer_hits = {}             # (логин, действие) -> метки времени запросов (защита от спама и перебора ID)
-_bg = set()                 # ссылки на фоновые задачи, чтобы их не собрал сборщик мусора
+XFER_MIN = 1.0
+XFER_KEEP = 20
+_xfer_hits = {}
+_bg = set()
 
 def xfer_rate(login, kind, limit, window=60):
     now = time.time()
@@ -1820,14 +1751,13 @@ async def handle_transfer(request):
         return err(f"Минимальный перевод — ${XFER_MIN:g}")
     if x > math.floor(usd_of(user) * 100 + 1e-6) / 100:
         return err("Не хватает долларов")
-    # дальше нет ни одного await до списания — двойная трата невозможна
     add_usd(user, -x, 0)
     tu["co"]["pending"] = round(tu["co"].get("pending", 0) + x, 2)
     xfer_log(user, "out", target, x)
     xfer_log(tu, "in", login, x)
     touch(login)
     touch(target)
-    await flush()  # перевод фиксируем в БД сразу
+    await flush()
     if TOKEN:
         spawn(call(request.app["s"], "sendMessage", chat_id=int(to),
                    text=f"💸 {uname(login)} отправил тебе ${x:,.2f}\nДеньги уже зачисляются в игре 👇",
@@ -1836,9 +1766,6 @@ async def handle_transfer(request):
 
 CO_ROUTES.append(("/api/transfer", handle_transfer))
 
-# =========================
-# ЗАПУСК
-# =========================
 async def keep_alive(app):
     await asyncio.sleep(10)
     async with ClientSession() as session:
@@ -1863,23 +1790,17 @@ async def on_start(app):
                    allowed_updates=["message", "pre_checkout_query"])
         me = await call(app["s"], "getMe")
         BOT_NAME = (me.get("result") or {}).get("username", "")
-    app["keep_alive_task"] = asyncio.create_task(keep_alive(app))
+    if RENDER_URL:
+        app["keep_alive_task"] = asyncio.create_task(keep_alive(app))
 
 async def on_cleanup(app):
-    if "writer_task" in app:
-        app["writer_task"].cancel()
-    if "market_task" in app:
-        app["market_task"].cancel()
-    if "debt_task" in app:
-        app["debt_task"].cancel()
-    if "parts_task" in app:
-        app["parts_task"].cancel()
-    _dirty.update(USERS)  # перед остановкой пишем всех
+    for task_name in ("writer_task", "market_task", "debt_task", "parts_task", "keep_alive_task"):
+        if task_name in app:
+            app[task_name].cancel()
+    _dirty.update(USERS)
     await flush()
     if _pool:
         await _pool.close()
-    if "keep_alive_task" in app:
-        app["keep_alive_task"].cancel()
     if "s" in app:
         await app["s"].close()
 
