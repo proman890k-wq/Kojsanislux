@@ -20,7 +20,7 @@ except ImportError:
 # =========================
 # НАСТРОЙКИ (секреты — через переменные окружения Render)
 # =========================
-TOKEN = os.environ.get("BOT_TOKEN", "")  # ОБЯЗАТЕЛЬНО через переменную окружения
+TOKEN = os.environ.get("BOT_TOKEN", "8307112310:AAHr3QCU5P39DCQla4sIppTKB4a1J5XrGgg")  # ОБЯЗАТЕЛЬНО через переменную окружения
 PROMO_URL = os.environ.get("PROMO_URL", "https://raw.githubusercontent.com/proman890k-wq/Kojsanislux/refs/heads/main/promo.txt")
 WEBAPP_URL = "https://proman890k-wq.github.io/Kojsanislux/"
 RENDER_URL = os.environ.get("RENDER_EXTERNAL_URL", "https://game-2gla.onrender.com")
