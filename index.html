@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="theme-color" content="#070a14">
-<title>Нейроферма</title>
+<title>CryptoFarm</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@600;800&family=Manrope:wght@500;700;800&display=swap" rel="stylesheet">
 <style>
@@ -377,9 +377,61 @@ h3::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,var(--li
 .crate small{display:block;color:var(--dim);font-size:11px}
 #nav button{padding:8px 0;font-size:10px}
 #nav button i{font-size:21px}
+/* ===================== КИБЕР-ЗАСТАВКА CRYPTOFARM ===================== */
+#splash{position:fixed;inset:0;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:clamp(16px,3.8vh,30px);overflow:hidden;cursor:pointer;
+  background:radial-gradient(90% 60% at 50% 40%,#131c36 0%,#0a0e1a 60%,#04060b 100%);transition:opacity .6s ease,transform .6s cubic-bezier(.4,0,.2,1)}
+#splash.out{opacity:0;transform:scale(1.05);pointer-events:none}
+.ns-glow{position:absolute;left:50%;top:38%;width:110vmin;height:110vmin;translate:-50% -50%;border-radius:50%;opacity:0;
+  background:radial-gradient(circle,rgba(93,242,196,.22) 0%,rgba(77,163,255,.15) 40%,transparent 70%);
+  animation:nsGlow 1.4s ease .2s forwards}
+@keyframes nsGlow{to{opacity:1}}
+.ns-fan{position:relative;width:min(54vw,220px);height:min(42vw,160px);flex:none;display:flex;align-items:center;justify-content:center}
+
+/* Кибернетические блоки / токены на заставке */
+.ns-c{position:absolute;width:clamp(56px,16vw,78px);height:clamp(56px,16vw,78px);border-radius:18px;border:2px solid var(--neon);
+  background:linear-gradient(135deg,rgba(93,242,196,.18),rgba(20,26,46,.9));box-shadow:0 0 20px rgba(93,242,196,.35),inset 0 0 12px rgba(93,242,196,.2);
+  display:grid;place-items:center;font-size:clamp(22px,6vw,32px);transform-origin:center;opacity:0;will-change:transform;
+  animation:nsDeal .8s cubic-bezier(.2,1,.3,1.2) var(--d) forwards,nsFloat 3s ease-in-out calc(var(--d) + .8s) infinite alternate}
+.ns-c::before{content:"";position:absolute;inset:6px;border:1px dashed rgba(255,255,255,.25);border-radius:12px}
+@keyframes nsDeal{0%{opacity:0;transform:translate3d(0,50vh,0) scale(.3) rotate(-45deg)}20%{opacity:1}100%{opacity:1;transform:translate3d(var(--x),var(--y),0) rotate(var(--r)) scale(1)}}
+@keyframes nsFloat{to{transform:translate3d(var(--x),calc(var(--y) - 8px),0) rotate(var(--r))}}
+
+.ns-title-wrap{text-align:center;display:flex;flex-direction:column;align-items:center;gap:6px}
+.ns-title{font:800 clamp(36px,11vw,64px)/1.1 Unbounded,system-ui,sans-serif;letter-spacing:-1px;padding:0 .1em;
+  background:linear-gradient(90deg,#fff,var(--neon),var(--blue));-webkit-background-clip:text;background-clip:text;color:transparent;
+  filter:drop-shadow(0 0 25px rgba(93,242,196,.5));opacity:0;animation:nsTitle .7s cubic-bezier(.2,1,.3,1.2) .9s forwards}
+@keyframes nsTitle{from{opacity:0;transform:scale(.5) translateY(20px)}to{opacity:1;transform:none}}
+
+.ns-studio{font:700 clamp(11px,3.5vw,14px)/1 Manrope,system-ui,sans-serif;letter-spacing:.35em;text-transform:uppercase;color:var(--dim);opacity:0;animation:nsLet .8s ease 1.4s forwards}
+@keyframes nsLet{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.ns-skip{position:absolute;bottom:calc(env(safe-area-inset-bottom) + 16px);font-size:12px;color:var(--dim);letter-spacing:.08px;opacity:0;animation:nsLet 1s ease 1.2s forwards}
+.ns-credit{position:absolute;bottom:calc(env(safe-area-inset-bottom) + 43px);font:600 11px/1.2 Manrope,system-ui,sans-serif;letter-spacing:.16em;color:rgba(190,205,225,.72);text-transform:uppercase;opacity:0;animation:nsLet 1s ease 1.5s forwards}
+.ns-credit span{color:var(--neon);font-weight:800}
+
+@media (prefers-reduced-motion:reduce){
+  #splash,.ns-glow,.ns-c,.ns-title,.ns-studio,.ns-skip,.ns-credit{animation-duration:.01ms!important;animation-delay:0s!important}
+}
 </style>
 </head>
 <body>
+
+<!-- Заставка CryptoFarm -->
+<div id="splash" role="button" tabindex="0" aria-label="Войти в CryptoFarm" onclick="dismissSplash()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();dismissSplash()}">
+  <div class="ns-glow" aria-hidden="true"></div>
+  <div class="ns-fan" aria-hidden="true">
+    <div class="ns-c" style="--x:-54px;--y:10px;--r:-18deg;--d:.1s">⚡</div>
+    <div class="ns-c" style="--x:-22px;--y:-16px;--r:-8deg;--d:.2s">💎</div>
+    <div class="ns-c" style="--x:18px;--y:-16px;--r:8deg;--d:.3s">🌐</div>
+    <div class="ns-c" style="--x:52px;--y:10px;--r:18deg;--d:.4s">🚀</div>
+  </div>
+  <div class="ns-title-wrap">
+    <div class="ns-title">CryptoFarm</div>
+    <div class="ns-studio">CRYPTO MINING EMPIRE</div>
+  </div>
+  <div class="ns-credit">by <span>FarmGameStudio</span></div>
+  <div class="ns-skip">Нажмите в любом месте, чтобы войти</div>
+</div>
+
 <canvas id="fx"></canvas>
 <div class="toast" id="toast"></div>
 <div class="ev" id="ev" hidden><b id="evt"></b><small id="evd"></small><div class="cbar"><i id="evb"></i></div></div>
@@ -1810,6 +1862,22 @@ setInterval(() => {
 mnRender(); mnUI(); diceInfo();
 refresh(); ui();
 setInterval(() => { if(cloudChecked && !document.hidden) refresh() }, 60000);  // VIP/перки от админа подхватываются без перезапуска
+</script>
+
+<script>
+(() => {
+  const splash = document.getElementById('splash');
+  if (!splash) return;
+  let closed = false;
+  window.dismissSplash = function () {
+    if (closed) return;
+    closed = true;
+    splash.classList.add('out');
+    window.setTimeout(() => splash.remove(), 650);
+  };
+  // Заставка не задерживает вход в игру: её можно пропустить или дождаться автозакрытия.
+  window.setTimeout(() => window.dismissSplash(), 4200);
+})();
 </script>
 </body>
 </html>
